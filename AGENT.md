@@ -43,3 +43,4 @@
 1. **思考 (Deep Thinking)**: 在执行复杂任务前，先在思维链中用中文推演。
 2. **确认 (Confirmation)**: 对关键架构决策进行确认。
 3. **交付 (Delivery)**: 每次交付代码前进行自我审查。
+4. **记录 (Logging)**: 每次开发完成后，在DEVELOPMENT_LOG.md中记录开发日志。

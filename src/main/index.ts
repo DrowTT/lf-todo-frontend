@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import * as db from './db/database'
 
 function createWindow(): void {
   // Create the browser window.
@@ -9,6 +10,7 @@ function createWindow(): void {
     width: 900,
     height: 670,
     show: false,
+    frame: false, // 去除原生标题栏
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -19,11 +21,30 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+    // 开发模式下打开 DevTools
+    if (is.dev) {
+      mainWindow.webContents.openDevTools()
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  // 窗口控制 IPC 处理器
+  ipcMain.on('window:minimize', () => {
+    mainWindow.minimize()
+  })
+
+  ipcMain.on('window:close', () => {
+    mainWindow.close()
+  })
+
+  ipcMain.on('window:toggle-always-on-top', () => {
+    const flag = !mainWindow.isAlwaysOnTop()
+    mainWindow.setAlwaysOnTop(flag)
+    mainWindow.webContents.send('window:always-on-top-changed', flag)
   })
 
   // HMR for renderer base on electron-vite cli.
@@ -52,6 +73,29 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
+  // 初始化数据库
+  db.initDatabase()
+
+  // 注册数据库 IPC 处理器
+  // Category 相关
+  ipcMain.handle('db:get-categories', async () => db.getAllCategories())
+  ipcMain.handle('db:create-category', async (_, name: string) => db.createCategory(name))
+  ipcMain.handle('db:update-category', async (_, id: number, name: string) =>
+    db.updateCategory(id, name)
+  )
+  ipcMain.handle('db:delete-category', async (_, id: number) => db.deleteCategory(id))
+
+  // Task 相关
+  ipcMain.handle('db:get-tasks', async (_, categoryId: number) => db.getTasksByCategory(categoryId))
+  ipcMain.handle('db:create-task', async (_, content: string, categoryId: number) =>
+    db.createTask(content, categoryId)
+  )
+  ipcMain.handle('db:update-task', async (_, id: number, updates: any) =>
+    db.updateTask(id, updates)
+  )
+  ipcMain.handle('db:delete-task', async (_, id: number) => db.deleteTask(id))
+  ipcMain.handle('db:toggle-task', async (_, id: number) => db.toggleTaskComplete(id))
+
   createWindow()
 
   app.on('activate', function () {
@@ -66,8 +110,14 @@ app.whenReady().then(() => {
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    db.closeDatabase()
     app.quit()
   }
+})
+
+// 在 macOS 上退出前关闭数据库
+app.on('before-quit', () => {
+  db.closeDatabase()
 })
 
 // In this file you can include the rest of your app's specific main process
