@@ -1,7 +1,8 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Tray, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import trayIcon from '../../resources/tray-icon.png?asset'
 import * as db from './db/database'
 
 function createWindow(): void {
@@ -12,7 +13,7 @@ function createWindow(): void {
     show: false,
     frame: false, // 去除原生标题栏
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -32,13 +33,54 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  let isQuitting = false
+
+  // 创建系统托盘
+  const tray = new Tray(trayIcon)
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '显示',
+      click: () => {
+        mainWindow.show()
+      }
+    },
+    {
+      label: '退出',
+      click: () => {
+        isQuitting = true
+        app.quit()
+      }
+    }
+  ])
+
+  tray.setToolTip('极简待办')
+  tray.setContextMenu(contextMenu)
+
+  // 托盘图标点击事件 - 切换窗口显示/隐藏
+  tray.on('click', () => {
+    if (mainWindow.isVisible()) {
+      mainWindow.hide()
+    } else {
+      mainWindow.show()
+    }
+  })
+
+  // 窗口关闭时隐藏而不是退出
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault()
+      mainWindow.hide()
+    }
+    return false
+  })
+
   // 窗口控制 IPC 处理器
   ipcMain.on('window:minimize', () => {
     mainWindow.minimize()
   })
 
   ipcMain.on('window:close', () => {
-    mainWindow.close()
+    mainWindow.hide() // 改为隐藏窗口而不是关闭
   })
 
   ipcMain.on('window:toggle-always-on-top', () => {

@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: lf-todo
+appId: com.lf.todo
+productName: 极简待办
 directories:
   buildResources: build
 files:
@@ -13,11 +13,20 @@ asarUnpack:
   - resources/**
 win:
   executableName: lf-todo
+  target:
+    - nsis
+    - portable
+  icon: build/icon.png
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  createStartMenuShortcut: true
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  language: 2052
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
