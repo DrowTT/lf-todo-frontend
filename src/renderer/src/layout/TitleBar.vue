@@ -114,12 +114,13 @@ onMounted(() => {
 
     &--pin {
       &.is-active {
-        background: rgba(76, 175, 80, 0.25);
+        // background: rgba(76, 175, 80, 0.25);
+        background: rgba(61, 79, 92, 0.75);
         color: $success-color;
       }
 
       &:hover {
-        background: rgba(76, 175, 80, 0.15);
+        background: rgba(61, 79, 92, 0.35);
       }
     }
 

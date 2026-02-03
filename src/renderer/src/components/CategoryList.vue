@@ -114,6 +114,7 @@ const cancelRename = () => {
             v-if="editingCategoryId === cat.id"
             v-model="editingName"
             class="category-list__input category-list__input--inline"
+            maxlength="6"
             @keyup.enter="handleRenameConfirm"
             @blur="handleRenameConfirm"
             @click.stop
@@ -128,6 +129,7 @@ const cancelRename = () => {
           v-model="newCategoryName"
           class="category-list__input"
           placeholder="输入名称..."
+          maxlength="6"
           @keyup.enter="handleAddCategory"
           @blur="handleAddCategory"
           ref="inputRef"

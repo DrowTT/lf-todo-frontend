@@ -23,6 +23,7 @@ const handleSubmit = async () => {
       type="text"
       class="todo-input__field"
       placeholder="输入待办内容..."
+      maxlength="100"
       @keyup.enter="handleSubmit"
     />
   </div>
