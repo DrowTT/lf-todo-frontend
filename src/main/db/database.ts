@@ -123,7 +123,7 @@ export interface Task {
  */
 export function getTasksByCategory(categoryId: number): Task[] {
   if (!db) throw new Error('数据库未初始化')
-  const stmt = db.prepare('SELECT * FROM tasks WHERE category_id = ? ORDER BY order_index, id')
+  const stmt = db.prepare('SELECT * FROM tasks WHERE category_id = ? ORDER BY id DESC')
   return stmt.all(categoryId) as Task[]
 }
 

@@ -1,0 +1,138 @@
+<script setup lang="ts">
+import { store } from '../store'
+import TodoInput from './TodoInput.vue'
+import TodoItem from './TodoItem.vue'
+import { computed } from 'vue'
+import { useConfirm } from '../composables/useConfirm'
+
+const { confirm } = useConfirm()
+
+const currentCategoryName = computed(() => {
+  const cat = store.categories.find((c) => c.id === store.currentCategoryId)
+  return cat ? cat.name : '未选择分类'
+})
+
+const completedCount = computed(() => {
+  return store.tasks.filter((t) => t.is_completed).length
+})
+
+const handleClearCompleted = async () => {
+  const confirmed = await confirm(`确认删除 ${completedCount.value} 个已完成的待办吗?`)
+  if (confirmed) {
+    store.clearCompletedTasks()
+  }
+}
+</script>
+
+<template>
+  <div class="todo-list">
+    <!-- Header -->
+    <div class="todo-list__header">
+      <h1 class="todo-list__title">
+        {{ currentCategoryName }}
+      </h1>
+      <div class="todo-list__actions">
+        <span class="todo-list__count" v-if="store.currentCategoryId">
+          {{ store.tasks.filter((t) => !t.is_completed).length }} 待办
+        </span>
+        <button
+          v-if="store.currentCategoryId"
+          @click="handleClearCompleted"
+          :disabled="completedCount === 0"
+          class="todo-list__clear-btn"
+          title="清空已完成"
+        >
+          清空已完成 ({{ completedCount }})
+        </button>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <TodoInput v-if="store.currentCategoryId" />
+
+    <!-- List -->
+    <div class="todo-list__content">
+      <div v-if="!store.currentCategoryId" class="todo-list__empty">请选择或创建一个分类</div>
+      <div v-else-if="store.tasks.length === 0" class="todo-list__empty">
+        暂无任务,快去添加一个吧~
+      </div>
+      <div v-else>
+        <TodoItem v-for="task in store.tasks" :key="task.id" :task="task" />
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped lang="scss">
+@use '../styles/variables' as *;
+
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex: 1;
+  background: $bg-primary;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid $border-color;
+  }
+
+  &__title {
+    font-size: $font-lg;
+    font-weight: 500;
+    color: $text-primary;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+  }
+
+  &__count {
+    font-size: $font-xs;
+    color: $text-muted;
+  }
+
+  &__clear-btn {
+    padding: $spacing-xs $spacing-sm;
+    background: transparent;
+    border: 1px solid $border-color;
+    border-radius: $radius-sm;
+    font-size: $font-xs;
+    color: $text-secondary;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover:not(:disabled) {
+      border-color: $danger-color;
+      color: $danger-color;
+      background: rgba($danger-color, 0.1);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      color: $text-muted;
+    }
+  }
+
+  &__content {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    font-size: $font-sm;
+    color: $text-muted;
+  }
+}
+</style>

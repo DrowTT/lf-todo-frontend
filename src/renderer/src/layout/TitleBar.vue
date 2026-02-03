@@ -62,74 +62,76 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+@use '../styles/variables' as *;
+
 .title-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 32px;
-  background: #2b2b2b;
-  color: #e0e0e0;
+  height: 30px;
+  background: $bg-secondary;
+  color: $text-primary;
   user-select: none;
-  border-bottom: 1px solid #1a1a1a;
+  border-bottom: 1px solid $border-color;
 
   &__drag-area {
     flex: 1;
     display: flex;
     align-items: center;
     height: 100%;
-    padding-left: 12px;
-    -webkit-app-region: drag; // 允许拖拽窗口
+    padding-left: $spacing-md;
+    -webkit-app-region: drag;
   }
 
   &__title {
-    font-size: 13px;
+    font-size: $font-sm;
     font-weight: 500;
-    color: #9e9e9e;
+    color: $text-secondary;
   }
 
   &__controls {
     display: flex;
     height: 100%;
-    -webkit-app-region: no-drag; // 防止按钮区域被拖拽
+    -webkit-app-region: no-drag;
   }
 
   &__btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 46px;
+    width: 44px;
     height: 100%;
     background: transparent;
     border: none;
-    color: #e0e0e0;
-    font-size: 12px;
+    color: $text-primary;
+    font-size: $font-sm;
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: background-color $transition-fast;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.08);
     }
 
     &--pin {
       &.is-active {
-        background: rgba(76, 175, 80, 0.3);
-        color: #4caf50;
+        background: rgba(76, 175, 80, 0.25);
+        color: $success-color;
       }
 
       &:hover {
-        background: rgba(76, 175, 80, 0.2);
+        background: rgba(76, 175, 80, 0.15);
       }
     }
 
     &--minimize {
-      font-size: 16px;
+      font-size: $font-lg;
     }
 
     &--close {
-      font-size: 16px;
+      font-size: $font-lg;
 
       &:hover {
-        background: #e81123;
+        background: $danger-color;
         color: white;
       }
     }

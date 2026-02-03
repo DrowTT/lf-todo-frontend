@@ -1,8 +1,8 @@
 /* 
  * 全局样式入口
- * Tailwind CSS v4
+ * Sass 变量和自定义样式
  */
-@import 'tailwindcss';
+@use './variables' as *;
 
 /* 全局重置 */
 * {
@@ -23,9 +23,30 @@ body {
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: $bg-primary;
+  color: $text-primary;
 }
 
 #app {
   width: 100%;
   height: 100%;
+}
+
+/* 全局滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: $border-color;
+  border-radius: $radius-sm;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: $border-light;
 }
