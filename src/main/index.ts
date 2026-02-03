@@ -10,6 +10,8 @@ function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
+    minWidth: 400, // 最小宽度：左侧 100px + 右侧 300px
+    minHeight: 500, // 最小高度
     show: false,
     frame: false, // 去除原生标题栏
     autoHideMenuBar: true,

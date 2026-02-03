@@ -179,7 +179,7 @@ const cancelRename = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  width: 180px;
+  /* width: 180px;  Removed for resizable sidebar */
   background: $bg-secondary;
   border-right: 1px solid $border-color;
 
