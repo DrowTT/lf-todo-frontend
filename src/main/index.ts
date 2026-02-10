@@ -75,13 +75,10 @@ function createWindow(): void {
   tray.setToolTip('极简待办')
   tray.setContextMenu(contextMenu)
 
-  // 托盘图标点击事件 - 切换窗口显示/隐藏
+  // 托盘图标点击事件 - 显示并聚焦窗口
   tray.on('click', () => {
-    if (mainWindow.isVisible()) {
-      mainWindow.hide()
-    } else {
-      mainWindow.show()
-    }
+    mainWindow.show()
+    mainWindow.focus()
   })
 
   // 窗口关闭时隐藏而不是退出
