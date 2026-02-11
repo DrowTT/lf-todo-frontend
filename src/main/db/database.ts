@@ -123,7 +123,9 @@ export interface Task {
  */
 export function getTasksByCategory(categoryId: number): Task[] {
   if (!db) throw new Error('数据库未初始化')
-  const stmt = db.prepare('SELECT * FROM tasks WHERE category_id = ? ORDER BY id DESC')
+  const stmt = db.prepare(
+    'SELECT * FROM tasks WHERE category_id = ? ORDER BY order_index DESC, id DESC'
+  )
   return stmt.all(categoryId) as Task[]
 }
 
@@ -185,6 +187,23 @@ export function deleteTask(id: number): void {
   if (!db) throw new Error('数据库未初始化')
   const stmt = db.prepare('DELETE FROM tasks WHERE id = ?')
   stmt.run(id)
+}
+
+/**
+ * 批量删除任务（事务处理）
+ */
+export function deleteTasks(ids: number[]): void {
+  if (!db) throw new Error('数据库未初始化')
+  if (ids.length === 0) return
+
+  const deleteOne = db.prepare('DELETE FROM tasks WHERE id = ?')
+  const deleteBatch = db.transaction((taskIds: number[]) => {
+    for (const id of taskIds) {
+      deleteOne.run(id)
+    }
+  })
+
+  deleteBatch(ids)
 }
 
 /**

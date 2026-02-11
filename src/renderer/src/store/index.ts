@@ -109,10 +109,10 @@ export const store = reactive({
   },
 
   async clearCompletedTasks() {
-    const completedTasks = this.tasks.filter((t) => t.is_completed)
-    for (const task of completedTasks) {
-      await db.deleteTask(task.id)
-    }
+    const completedTaskIds = this.tasks.filter((t) => t.is_completed).map((t) => t.id)
+    if (completedTaskIds.length === 0) return
+
+    await db.deleteTasks(completedTaskIds)
     await this.fetchTasks()
     await this.fetchPendingCounts()
   }

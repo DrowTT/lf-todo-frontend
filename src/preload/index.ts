@@ -25,6 +25,7 @@ const api = {
       ipcRenderer.invoke('db:create-task', content, categoryId),
     updateTask: (id: number, updates: any) => ipcRenderer.invoke('db:update-task', id, updates),
     deleteTask: (id: number) => ipcRenderer.invoke('db:delete-task', id),
+    deleteTasks: (ids: number[]) => ipcRenderer.invoke('db:delete-tasks', ids),
     toggleTaskComplete: (id: number) => ipcRenderer.invoke('db:toggle-task', id),
     getPendingTaskCounts: () => ipcRenderer.invoke('db:get-pending-counts')
   }
