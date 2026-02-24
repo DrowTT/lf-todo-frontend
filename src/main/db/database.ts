@@ -126,6 +126,9 @@ export interface Task {
   order_index: number
   created_at: number
   parent_id: number | null
+  // 子任务统计（仅顶级任务具备）
+  subtask_total: number
+  subtask_done: number
 }
 
 /**
@@ -133,10 +136,17 @@ export interface Task {
  */
 export function getTasksByCategory(categoryId: number): Task[] {
   if (!db) throw new Error('数据库未初始化')
-  // 只返回顶级任务（parent_id IS NULL）
-  const stmt = db.prepare(
-    'SELECT * FROM tasks WHERE category_id = ? AND parent_id IS NULL ORDER BY order_index DESC, id DESC'
-  )
+  // LEFT JOIN 带出子任务统计，初始加载即可显示进度 badge
+  const stmt = db.prepare(`
+    SELECT t.*,
+      COUNT(s.id) AS subtask_total,
+      SUM(CASE WHEN s.is_completed = 1 THEN 1 ELSE 0 END) AS subtask_done
+    FROM tasks t
+    LEFT JOIN tasks s ON s.parent_id = t.id
+    WHERE t.category_id = ? AND t.parent_id IS NULL
+    GROUP BY t.id
+    ORDER BY t.order_index DESC, t.id DESC
+  `)
   return stmt.all(categoryId) as Task[]
 }
 

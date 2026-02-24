@@ -14,6 +14,9 @@ interface Task {
   category_id: number
   order_index: number
   created_at: number
+  parent_id: number | null
+  subtask_total: number
+  subtask_done: number
 }
 
 interface API {
@@ -35,8 +38,13 @@ interface API {
     createTask: (content: string, categoryId: number) => Promise<Task>
     updateTask: (id: number, updates: any) => Promise<void>
     deleteTask: (id: number) => Promise<void>
+    deleteTasks: (ids: number[]) => Promise<void>
     toggleTaskComplete: (id: number) => Promise<void>
     getPendingTaskCounts: () => Promise<Record<number, number>>
+
+    // SubTask 操作
+    getSubTasks: (parentId: number) => Promise<Task[]>
+    createSubTask: (content: string, parentId: number) => Promise<Task>
   }
 }
 

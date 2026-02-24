@@ -2,6 +2,9 @@
 import { ref, nextTick } from 'vue'
 import { Task } from '../db'
 import { store } from '../store'
+import { useConfirm } from '../composables/useConfirm'
+
+const { confirm } = useConfirm()
 
 const props = defineProps<{
   task: Task
@@ -17,8 +20,10 @@ const handleToggle = () => {
   store.toggleSubTask(props.task.id, props.parentId)
 }
 
-const handleDelete = () => {
-  store.deleteSubTask(props.task.id, props.parentId)
+const handleDelete = async () => {
+  // UX1：子任务删除也需确认
+  const ok = await confirm('确认删除该子任务吗？')
+  if (ok) store.deleteSubTask(props.task.id, props.parentId)
 }
 
 // 自适应 textarea 高度
@@ -47,6 +52,16 @@ const saveEdit = () => {
     store.updateSubTaskContent(props.task.id, props.parentId, trimmed)
   }
   isEditing.value = false
+}
+
+// UX4：blur 时内容未变化则直接取消，不触发 IPC
+const onBlur = () => {
+  const trimmed = editContent.value.trim()
+  if (!trimmed || trimmed === props.task.content) {
+    cancelEdit()
+  } else {
+    saveEdit()
+  }
 }
 
 // 取消编辑
@@ -85,7 +100,7 @@ const cancelEdit = () => {
         rows="1"
         @keydown.enter.exact.prevent="saveEdit"
         @keyup.escape="cancelEdit"
-        @blur="saveEdit"
+        @blur="onBlur"
         @input="adjustHeight"
       />
     </div>

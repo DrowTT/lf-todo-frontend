@@ -15,13 +15,9 @@ const adjustHeight = () => {
 
 const handleSubmit = async () => {
   if (!content.value.trim()) return
-  if (!store.currentCategoryId) {
-    alert('请先选择一个分类')
-    return
-  }
+  // UX2：currentCategoryId 为 null 时组件根本不渲染，此判断是死代码，直接移除
   await store.addTask(content.value.trim())
   content.value = ''
-  // 提交后重置回单行高度
   nextTick(() => {
     const el = textareaRef.value
     if (el) el.style.height = 'auto'
@@ -39,6 +35,7 @@ const handleSubmit = async () => {
       class="todo-input__field"
       placeholder="输入待办内容..."
       maxlength="100"
+      :disabled="store.isLoading"
       @input="adjustHeight"
       @keydown.enter.exact.prevent="handleSubmit"
     />

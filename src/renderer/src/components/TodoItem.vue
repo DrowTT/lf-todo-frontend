@@ -2,8 +2,11 @@
 import { ref, nextTick, computed } from 'vue'
 import { Task } from '../db'
 import { store } from '../store'
+import { useConfirm } from '../composables/useConfirm'
 import SubTaskItem from './SubTaskItem.vue'
 import SubTaskInput from './SubTaskInput.vue'
+
+const { confirm } = useConfirm()
 
 const props = defineProps<{
   task: Task
@@ -20,20 +23,27 @@ const isExpanded = computed(() => store.expandedTaskIds.has(props.task.id))
 // 子任务列表
 const subTasks = computed(() => store.subTasksMap[props.task.id] ?? [])
 
-// 子任务进度：[已完成数, 总数]
+// 子任务进度：展开时从 subTasksMap 取实时数据，收起时从 SQL 统计字段取
 const subTaskProgress = computed(() => {
-  const list = subTasks.value
-  if (list.length === 0) return null
-  const done = list.filter((t) => t.is_completed).length
-  return { done, total: list.length }
+  if (store.expandedTaskIds.has(props.task.id) && store.subTasksMap[props.task.id]) {
+    const list = store.subTasksMap[props.task.id]
+    if (list.length === 0) return null
+    return { done: list.filter((t) => t.is_completed).length, total: list.length }
+  }
+  // 未展开时用 SQL 带出的统计字段（初始加载即可显示）
+  const total = props.task.subtask_total
+  if (!total) return null
+  return { done: props.task.subtask_done, total }
 })
 
 const handleToggle = () => {
   store.toggleTask(props.task.id)
 }
 
-const handleDelete = () => {
-  store.deleteTask(props.task.id)
+const handleDelete = async () => {
+  // UX1：危险操作需确认
+  const ok = await confirm('确认删除该任务吗？')
+  if (ok) store.deleteTask(props.task.id)
 }
 
 const handleToggleExpand = () => {
@@ -66,6 +76,16 @@ const saveEdit = () => {
     store.updateTaskContent(props.task.id, trimmed)
   }
   isEditing.value = false
+}
+
+// UX4：blur 时若内容未变化，直接取消而不触发 IPC
+const onBlur = () => {
+  const trimmed = editContent.value.trim()
+  if (!trimmed || trimmed === props.task.content) {
+    cancelEdit()
+  } else {
+    saveEdit()
+  }
 }
 
 // 取消编辑
@@ -106,7 +126,7 @@ const cancelEdit = () => {
           rows="1"
           @keydown.enter.exact.prevent="saveEdit"
           @keyup.escape="cancelEdit"
-          @blur="saveEdit"
+          @blur="onBlur"
           @input="adjustHeight"
         />
       </div>
@@ -118,9 +138,9 @@ const cancelEdit = () => {
         </span>
       </div>
 
-      <!-- 展开/收起按钮 -->
+      <!-- 展开/收起按钮：UX7 仅在有子任务或已展开时显示 -->
       <button
-        v-if="!isEditing"
+        v-if="!isEditing && (subTaskProgress || isExpanded)"
         class="todo-item__expand"
         :class="{ 'todo-item__expand--active': isExpanded }"
         @click="handleToggleExpand"

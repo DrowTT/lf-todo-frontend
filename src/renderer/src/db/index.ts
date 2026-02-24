@@ -17,6 +17,8 @@ export interface Task {
   order_index: number
   created_at: number
   parent_id: number | null
+  subtask_total: number
+  subtask_done: number
 }
 
 // 数据库 API 代理（从 window.api.db）

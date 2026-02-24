@@ -16,6 +16,11 @@ const completedCount = computed(() => {
   return store.tasks.filter((t) => t.is_completed).length
 })
 
+// P3：提取为 computed，避免模板内联计算
+const pendingCount = computed(() => {
+  return store.tasks.filter((t) => !t.is_completed).length
+})
+
 const handleClearCompleted = async () => {
   const confirmed = await confirm(`确认删除 ${completedCount.value} 个已完成的待办吗?`)
   if (confirmed) {
@@ -33,7 +38,7 @@ const handleClearCompleted = async () => {
       </h1>
       <div class="todo-list__actions">
         <span class="todo-list__count" v-if="store.currentCategoryId">
-          {{ store.tasks.filter((t) => !t.is_completed).length }} 待办
+          {{ pendingCount }} 待办
         </span>
         <button
           v-if="store.currentCategoryId"
@@ -52,13 +57,19 @@ const handleClearCompleted = async () => {
 
     <!-- List -->
     <div class="todo-list__content">
-      <div v-if="!store.currentCategoryId" class="todo-list__empty">请选择或创建一个分类</div>
-      <div v-else-if="store.tasks.length === 0" class="todo-list__empty">
-        暂无任务,快去添加一个吧~
+      <!-- UX3：切换分类期间显示 loading 预占位层 -->
+      <div v-if="store.isLoading" class="todo-list__loading">
+        <span class="todo-list__spinner" />
       </div>
-      <div v-else>
-        <TodoItem v-for="task in store.tasks" :key="task.id" :task="task" />
-      </div>
+      <template v-else>
+        <div v-if="!store.currentCategoryId" class="todo-list__empty">请选择或创建一个分类</div>
+        <div v-else-if="store.tasks.length === 0" class="todo-list__empty">
+          暂无任务,快去添加一个吧~
+        </div>
+        <div v-else>
+          <TodoItem v-for="task in store.tasks" :key="task.id" :task="task" />
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -133,6 +144,31 @@ const handleClearCompleted = async () => {
     height: 200px;
     font-size: $font-sm;
     color: $text-muted;
+  }
+
+  // UX3：loading 占位层
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+  }
+
+  // UX3：旋转 spinner
+  &__spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid $border-color;
+    border-top-color: $accent-color;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 </style>
