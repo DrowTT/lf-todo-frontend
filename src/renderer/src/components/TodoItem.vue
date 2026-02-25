@@ -138,9 +138,12 @@ const { isEditing, editContent, adjustHeight, handleDblClick, saveEdit, cancelEd
 
   &__checkbox {
     flex-shrink: 0;
+    // 单行文字行高 18px（12px * 1.5），padding 各 8px，共 34px；
+    // checkbox 16px，居中需 margin-top = (34 - 16) / 2 - 8 = 1px
+    // 多行时保持在顶部是自然行为（flex-start）
     width: 16px;
     height: 16px;
-    margin-top: 2px;
+    margin-top: 1px;
     border: 1px solid $text-primary;
     border-radius: $radius-sm;
     cursor: pointer;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { store } from '../store'
 import { useAutoHeight } from '../composables/useAutoHeight'
 
@@ -20,6 +20,9 @@ const handleSubmit = async () => {
 }
 
 const { adjustHeight } = useAutoHeight(textareaRef)
+
+// 挂载时同步初始化高度，避免首次输入时因 rows="1" 与实际行高不一致导致跳动
+onMounted(() => adjustHeight())
 </script>
 
 <template>
@@ -61,6 +64,7 @@ const { adjustHeight } = useAutoHeight(textareaRef)
     border: none;
     outline: none;
     resize: none;
+    overflow: hidden;
     color: $text-secondary;
     font-size: $font-xs;
     font-family: inherit;
