@@ -2,6 +2,11 @@ appId: com.lf.todo
 productName: 极简待办
 directories:
   buildResources: build
+asar: true
+asarUnpack:
+  - '**/*.node'
+  - '**/node_modules/better-sqlite3/**'
+afterPack: ./build/afterPack.cjs
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -9,8 +14,6 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
-asarUnpack:
-  - resources/**
 win:
   executableName: lf-todo
   target:
@@ -46,7 +49,7 @@ linux:
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
-npmRebuild: false
+npmRebuild: true
 publish:
   provider: generic
   url: https://example.com/auto-updates

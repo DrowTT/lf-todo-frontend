@@ -31,8 +31,8 @@ onMounted(() => adjustHeight())
     <span class="subtask-input__icon">+</span>
     <textarea
       ref="textareaRef"
-      rows="1"
       v-model="content"
+      rows="1"
       class="subtask-input__field"
       placeholder="添加子任务…"
       maxlength="200"
