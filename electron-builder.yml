@@ -52,5 +52,5 @@ appImage:
 npmRebuild: true
 publish:
   provider: github
-  owner: online-dating-LT
+  owner: DrowTT
   repo: lf-todo
