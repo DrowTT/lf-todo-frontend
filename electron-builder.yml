@@ -18,7 +18,6 @@ win:
   executableName: lf-todo
   target:
     - nsis
-    - portable
   icon: build/icon.png
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
