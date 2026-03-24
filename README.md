@@ -2,10 +2,6 @@
 
 > 🧊 轻量级本地桌面待办事项管理工具，基于 Electron + Vue 3
 
-![version](https://img.shields.io/github/v/release/DrowTT/lf-todo?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=blue)
-![downloads](https://img.shields.io/github/downloads/DrowTT/lf-todo/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F&color=green)
-![license](https://img.shields.io/github/license/DrowTT/lf-todo)
-
 ## 📦 下载安装
 
 **[👉 点击下载最新版](https://github.com/DrowTT/lf-todo/releases/latest)**
