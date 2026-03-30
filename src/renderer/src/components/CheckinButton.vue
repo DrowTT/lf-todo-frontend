@@ -231,7 +231,7 @@ defineExpose({ fetchLevel })
   flex: 1;
   min-width: 0;
   height: 6px;
-  background: rgba($border-color, 0.5);
+  background: var(--progress-bg);
   border-radius: 3px;
   overflow: hidden;
 

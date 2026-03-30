@@ -1,10 +1,22 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { Settings, X, Power, MonitorOff, Trash2, Download, Info, Keyboard, RefreshCw } from 'lucide-vue-next'
+import {
+  Settings,
+  X,
+  Power,
+  MonitorOff,
+  Trash2,
+  Download,
+  Info,
+  Keyboard,
+  RefreshCw,
+  Palette
+} from 'lucide-vue-next'
 import { useHotkeys, HOTKEY_LABELS, keyToLabel, type HotkeyAction } from '../composables/useHotkeys'
 import { useConfirm } from '../composables/useConfirm'
 import { useAuthStore } from '../store/auth'
 import { ensureFeatureAccess } from '../composables/useFeatureGate'
+import { useTheme } from '../composables/useTheme'
 import UserProfile from './UserProfile.vue'
 
 const props = defineProps<{
@@ -17,6 +29,7 @@ const emit = defineEmits<{
 }>()
 
 const authStore = useAuthStore()
+const { activeTheme, themePresets, setTheme } = useTheme()
 
 // 检查是否在 Electron 环境中
 const isElectron = typeof window !== 'undefined' && window.api !== undefined
@@ -38,7 +51,14 @@ const appInfo = ref({
 })
 
 // ─── 更新状态 ───────────────────────────────────────────────────────
-type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'
+type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
 
 const updateStatus = ref<UpdateStatus>('idle')
 const updateVersion = ref('')
@@ -266,6 +286,11 @@ const handleExportData = async () => {
   }
 }
 
+const handleThemeChange = (themeId: Parameters<typeof setTheme>[0]) => {
+  if (activeTheme.value === themeId) return
+  setTheme(themeId)
+}
+
 // ─── ESC 键关闭 ─────────────────────────────────────────────────────
 const handleKeydown = (e: KeyboardEvent) => {
   // 录键模式下拦截所有键
@@ -319,10 +344,7 @@ onUnmounted(() => {
       <!-- 内容区域 -->
       <div class="settings-panel__body">
         <!-- 用户信息 -->
-        <UserProfile
-          @upgrade="promptUpgrade()"
-          @logout="authStore.logout()"
-        />
+        <UserProfile @upgrade="promptUpgrade()" @logout="authStore.logout()" />
 
         <!-- 通用设置 -->
         <div class="settings-group">
@@ -367,6 +389,50 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <div class="settings-group">
+          <div class="settings-group__header">
+            <Palette :size="14" class="settings-group__icon" />
+            <span>主题</span>
+          </div>
+
+          <div class="theme-picker">
+            <button
+              v-for="theme in themePresets"
+              :key="theme.id"
+              type="button"
+              class="theme-card"
+              :class="{ 'theme-card--active': activeTheme === theme.id }"
+              :style="{
+                '--theme-surface': theme.surface,
+                '--theme-accent': theme.accent,
+                '--theme-glow': theme.glow,
+                '--theme-chip-1': theme.preview[0],
+                '--theme-chip-2': theme.preview[1],
+                '--theme-chip-3': theme.preview[2]
+              }"
+              :aria-pressed="activeTheme === theme.id"
+              @click="handleThemeChange(theme.id)"
+            >
+              <div class="theme-card__preview">
+                <div class="theme-card__orb"></div>
+                <div class="theme-card__panel"></div>
+                <div class="theme-card__chips">
+                  <span class="theme-card__chip"></span>
+                  <span class="theme-card__chip"></span>
+                  <span class="theme-card__chip"></span>
+                </div>
+              </div>
+              <div class="theme-card__meta">
+                <div class="theme-card__title-row">
+                  <span class="theme-card__name">{{ theme.name }}</span>
+                </div>
+                <span class="theme-card__tagline">{{ theme.tagline }}</span>
+                <span class="theme-card__mood">{{ theme.mood }}</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
         <!-- 快捷键设置 -->
         <div class="settings-group">
           <div class="settings-group__header">
@@ -399,7 +465,9 @@ onUnmounted(() => {
               <span
                 v-if="action === 'toggleExpand' && !authStore.isPro"
                 class="hotkey-row__pro-tag"
-              >PRO</span>
+              >
+                PRO
+              </span>
             </div>
             <div class="hotkey-row__actions">
               <!-- 录键状态 -->
@@ -520,14 +588,17 @@ onUnmounted(() => {
             <!-- 更新区域 -->
             <div class="update-section">
               <!-- 闲置 / 已是最新 -->
-              <div v-if="updateStatus === 'idle' || updateStatus === 'not-available'" class="update-section__row">
-                <span v-if="updateStatus === 'not-available'" class="update-section__text update-section__text--success">
+              <div
+                v-if="updateStatus === 'idle' || updateStatus === 'not-available'"
+                class="update-section__row"
+              >
+                <span
+                  v-if="updateStatus === 'not-available'"
+                  class="update-section__text update-section__text--success"
+                >
                   ✓ 已是最新版本
                 </span>
-                <button
-                  class="update-section__btn"
-                  @click="handleCheckUpdate"
-                >
+                <button class="update-section__btn" @click="handleCheckUpdate">
                   <RefreshCw :size="12" />
                   检查更新
                 </button>
@@ -557,9 +628,7 @@ onUnmounted(() => {
 
               <!-- 下载中 -->
               <div v-else-if="updateStatus === 'downloading'" class="update-section__column">
-                <span class="update-section__text">
-                  正在下载更新… {{ updatePercent }}%
-                </span>
+                <span class="update-section__text"> 正在下载更新… {{ updatePercent }}% </span>
                 <div class="update-section__progress">
                   <div
                     class="update-section__progress-bar"
@@ -586,12 +655,7 @@ onUnmounted(() => {
                 <span class="update-section__text update-section__text--error">
                   检查失败：{{ updateError }}
                 </span>
-                <button
-                  class="update-section__btn"
-                  @click="handleCheckUpdate"
-                >
-                  重试
-                </button>
+                <button class="update-section__btn" @click="handleCheckUpdate">重试</button>
               </div>
             </div>
 
@@ -624,7 +688,7 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(15, 23, 42, 0.3);
+  background: $panel-overlay;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
@@ -640,7 +704,7 @@ onUnmounted(() => {
   height: 100%;
   background: $bg-primary;
   border-left: 1px solid $border-color;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.1);
+  box-shadow: -8px 0 32px rgb($text-primary-rgb / 0.12);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -764,12 +828,12 @@ onUnmounted(() => {
   }
 
   &:hover {
-    background: rgba(0, 0, 0, 0.015);
+    background: rgb($text-primary-rgb / 0.015);
   }
 
   &--nested {
     padding-left: $spacing-xl;
-    background: rgba($accent-color, 0.02);
+    background: rgb($accent-color-rgb / 0.02);
   }
 
   &__info {
@@ -805,7 +869,7 @@ onUnmounted(() => {
     padding: 4px 14px;
     background: $accent-soft;
     color: $accent-color;
-    border: 1px solid rgba($accent-color, 0.15);
+    border: 1px solid rgb($accent-color-rgb / 0.15);
     border-radius: $radius-md;
     font-size: $font-xs;
     font-weight: 500;
@@ -815,7 +879,7 @@ onUnmounted(() => {
     flex-shrink: 0;
 
     &:hover:not(:disabled) {
-      background: rgba($accent-color, 0.15);
+      background: rgb($accent-color-rgb / 0.15);
     }
 
     &:disabled {
@@ -839,12 +903,12 @@ onUnmounted(() => {
   }
 
   &:hover {
-    background: rgba(0, 0, 0, 0.012);
+    background: rgb($text-primary-rgb / 0.012);
   }
 
   // 录键激活态
   &--active {
-    background: rgba($accent-color, 0.03);
+    background: rgb($accent-color-rgb / 0.03);
   }
 
   // 固定快捷键行
@@ -918,7 +982,7 @@ onUnmounted(() => {
   min-width: 40px;
   height: 26px;
   padding: 0 10px;
-  background: rgba(0, 0, 0, 0.04);
+  background: rgb($text-primary-rgb / 0.04);
   border: none;
   border-radius: 6px;
   font-size: 11px;
@@ -931,12 +995,12 @@ onUnmounted(() => {
   user-select: none;
 
   &:hover {
-    background: rgba($accent-color, 0.1);
+    background: rgb($accent-color-rgb / 0.1);
     color: $accent-color;
   }
 
   &:active {
-    background: rgba($accent-color, 0.16);
+    background: rgb($accent-color-rgb / 0.16);
   }
 
   // 录键状态：蓝色发光边框 + 等待动画
@@ -947,7 +1011,7 @@ onUnmounted(() => {
     border-bottom-width: 1px;
     color: $accent-color;
     cursor: default;
-    box-shadow: 0 0 0 3px rgba($accent-color, 0.12);
+    box-shadow: 0 0 0 3px rgb($accent-color-rgb / 0.12);
     animation: key-glow 1.5s ease-in-out infinite;
 
     &:hover {
@@ -974,10 +1038,10 @@ onUnmounted(() => {
 @keyframes key-glow {
   0%,
   100% {
-    box-shadow: 0 0 0 3px rgba($accent-color, 0.12);
+    box-shadow: 0 0 0 3px rgb($accent-color-rgb / 0.12);
   }
   50% {
-    box-shadow: 0 0 0 4px rgba($accent-color, 0.2);
+    box-shadow: 0 0 0 4px rgb($accent-color-rgb / 0.2);
   }
 }
 
@@ -1002,7 +1066,7 @@ onUnmounted(() => {
 
     &:hover {
       color: $danger-color;
-      background: rgba($danger-color, 0.06);
+      background: rgb($danger-color-rgb / 0.06);
     }
   }
 }
@@ -1017,7 +1081,7 @@ onUnmounted(() => {
   letter-spacing: 0.5px;
   text-transform: uppercase;
   color: $text-muted;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgb($text-primary-rgb / 0.03);
   border-radius: 3px;
 }
 
@@ -1073,7 +1137,7 @@ onUnmounted(() => {
       bottom: 2px;
       background: white;
       border-radius: 50%;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 1px 3px rgb($text-primary-rgb / 0.15);
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
   }
@@ -1138,7 +1202,7 @@ onUnmounted(() => {
     height: 8px;
     border-radius: 50%;
     background: $accent-color;
-    box-shadow: 0 0 6px rgba($accent-color, 0.3);
+    box-shadow: 0 0 6px rgb($accent-color-rgb / 0.3);
     flex-shrink: 0;
   }
 
@@ -1185,8 +1249,8 @@ onUnmounted(() => {
 .update-section {
   margin-bottom: $spacing-md;
   padding: $spacing-sm $spacing-md;
-  background: rgba($accent-color, 0.03);
-  border: 1px solid rgba($accent-color, 0.08);
+  background: rgb($accent-color-rgb / 0.03);
+  border: 1px solid rgb($accent-color-rgb / 0.08);
   border-radius: $radius-md;
 
   &__row {
@@ -1237,7 +1301,7 @@ onUnmounted(() => {
     align-items: center;
     gap: 4px;
     padding: 4px 12px;
-    background: rgba(0, 0, 0, 0.04);
+    background: rgb($text-primary-rgb / 0.04);
     border: 1px solid $border-subtle;
     border-radius: $radius-sm;
     font-size: 11px;
@@ -1249,7 +1313,7 @@ onUnmounted(() => {
     flex-shrink: 0;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.06);
+      background: rgb($text-primary-rgb / 0.06);
       border-color: $border-light;
     }
 
@@ -1259,7 +1323,7 @@ onUnmounted(() => {
       color: white;
 
       &:hover {
-        background: darken($accent-color, 8%);
+        background: $accent-hover;
       }
     }
   }
@@ -1267,22 +1331,201 @@ onUnmounted(() => {
   &__progress {
     width: 100%;
     height: 4px;
-    background: rgba(0, 0, 0, 0.06);
+    background: rgb($text-primary-rgb / 0.06);
     border-radius: 2px;
     overflow: hidden;
   }
 
   &__progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, $accent-color, lighten($accent-color, 10%));
+    background: linear-gradient(90deg, $accent-color, $accent-hover);
     border-radius: 2px;
     transition: width 0.3s ease;
   }
 }
 
+.theme-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $spacing-md;
+  padding: $spacing-lg;
+}
+
+.theme-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid $border-color;
+  border-radius: $radius-lg;
+  background: $surface-soft;
+  box-shadow: $shadow-sm;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color $transition-normal,
+    box-shadow $transition-normal,
+    background $transition-normal;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.06),
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  &:hover {
+    border-color: rgb($accent-color-rgb / 0.35);
+    box-shadow:
+      0 0 0 1px rgb($accent-color-rgb / 0.15),
+      0 8px 24px -8px rgb(0 0 0 / 0.24);
+    background: $surface-soft-strong;
+
+    &::before {
+      animation: shimmer 0.6s ease forwards;
+    }
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: $accent-color;
+    box-shadow: 0 0 0 3px rgb($accent-color-rgb / 0.14);
+  }
+
+  &--active {
+    border-color: rgb($accent-color-rgb / 0.45);
+    box-shadow:
+      0 0 0 1px rgb($accent-color-rgb / 0.22),
+      $theme-card-shadow;
+  }
+
+  &__preview {
+    position: relative;
+    height: 104px;
+    overflow: hidden;
+    border-radius: 14px;
+    background: var(--theme-surface);
+    border: 1px solid rgb($border-color-rgb / 0.5);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  }
+
+  &__orb {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgb(255 255 255 / 0.9), var(--theme-accent));
+    filter: blur(1px);
+    box-shadow: 0 0 24px var(--theme-glow);
+  }
+
+  &__panel {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.04));
+    border: 1px solid rgb(255 255 255 / 0.16);
+    backdrop-filter: blur(10px);
+  }
+
+  &__chips {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    display: flex;
+    gap: 6px;
+  }
+
+  &__chip {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 1px solid rgb(255 255 255 / 0.32);
+
+    &:nth-child(1) {
+      background: var(--theme-chip-1);
+    }
+
+    &:nth-child(2) {
+      background: var(--theme-chip-2);
+    }
+
+    &:nth-child(3) {
+      background: var(--theme-chip-3);
+    }
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__name {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  &__tagline {
+    color: $text-secondary;
+    font-size: $font-sm;
+    font-weight: 600;
+  }
+
+  &__mood {
+    color: $text-muted;
+    font-size: $font-xs;
+    line-height: 1.45;
+  }
+}
+
+@media (max-width: 520px) {
+  .theme-picker {
+    grid-template-columns: 1fr;
+  }
+}
+
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    left: -100%;
+  }
+  to {
+    left: 100%;
+  }
 }
 
 // ─── 过渡动画 ──────────────────────────────────────────────────────

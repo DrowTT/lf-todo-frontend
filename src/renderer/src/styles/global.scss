@@ -3,8 +3,249 @@
  */
 @use './variables' as *;
 
-/* Google Fonts 引入 — DM Sans: 有个性的 geometric sans */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+/* Google Fonts 引入 */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
+
+:root,
+:root[data-theme='arctic-blue'] {
+  --font-body: 'DM Sans', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'DM Sans', 'Noto Sans SC', sans-serif;
+  --bg-deep: #f0f4fa;
+  --bg-primary: #fefefe;
+  --bg-sidebar: #e8edf5;
+  --bg-input: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-hover: #dde5f2;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border-color: #e2e8f0;
+  --border-light: #cbd5e1;
+  --border-subtle: rgba(15, 23, 42, 0.06);
+  --progress-bg: #e2e8f0;
+  --accent-color: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: rgba(37, 99, 235, 0.08);
+  --accent-glow: rgba(37, 99, 235, 0.2);
+  --accent-strong: #0f4fd6;
+  --accent-gradient: linear-gradient(135deg, #2563eb 0%, #4f7cff 100%);
+  --success-color: #16a34a;
+  --danger-color: #dc2626;
+  --warning-color: #d97706;
+  --bg-deep-rgb: 240 244 250;
+  --bg-primary-rgb: 254 254 254;
+  --bg-sidebar-rgb: 232 237 245;
+  --bg-input-rgb: 255 255 255;
+  --bg-elevated-rgb: 255 255 255;
+  --bg-hover-rgb: 221 229 242;
+  --text-primary-rgb: 15 23 42;
+  --text-secondary-rgb: 71 85 105;
+  --text-muted-rgb: 148 163 184;
+  --border-color-rgb: 226 232 240;
+  --border-light-rgb: 203 213 225;
+  --accent-color-rgb: 37 99 235;
+  --accent-hover-rgb: 29 78 216;
+  --success-color-rgb: 22 163 74;
+  --danger-color-rgb: 220 38 38;
+  --warning-color-rgb: 217 119 6;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --shadow-glow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  --pro-gradient: linear-gradient(135deg, #f59e0b, #f97316);
+  --pro-color-start: #f59e0b;
+  --pro-color-end: #f97316;
+  --pro-soft: rgba(249, 115, 22, 0.08);
+  --panel-overlay: rgba(15, 23, 42, 0.3);
+  --titlebar-hover: rgba(15, 23, 42, 0.06);
+  --surface-soft: rgba(255, 255, 255, 0.72);
+  --surface-soft-strong: rgba(255, 255, 255, 0.88);
+  --theme-card-shadow: 0 20px 44px rgba(37, 99, 235, 0.12);
+  --theme-card-glow: rgba(37, 99, 235, 0.24);
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-blur: blur(12px);
+  --glass-border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+:root[data-theme='obsidian-gold'] {
+  --font-body: 'Manrope', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Playfair Display', 'Noto Serif SC', serif;
+  --bg-deep: #090807;
+  --bg-primary: #12100f;
+  --bg-sidebar: #191614;
+  --bg-input: #181513;
+  --bg-elevated: #151210;
+  --bg-hover: #221d1a;
+  --text-primary: #f7f0e6;
+  --text-secondary: #d1c2af;
+  --text-muted: #8e7f70;
+  --border-color: #2a221d;
+  --border-light: #42352d;
+  --border-subtle: rgba(247, 240, 230, 0.08);
+  --progress-bg: #42352d;
+  --accent-color: #c7a45b;
+  --accent-hover: #ddb977;
+  --accent-soft: rgba(199, 164, 91, 0.12);
+  --accent-glow: rgba(199, 164, 91, 0.22);
+  --accent-strong: #e2bf79;
+  --accent-gradient: linear-gradient(135deg, #8a6a2d 0%, #d9bb7b 100%);
+  --success-color: #4ade80;
+  --danger-color: #f87171;
+  --warning-color: #fbbf24;
+  --bg-deep-rgb: 9 8 7;
+  --bg-primary-rgb: 18 16 15;
+  --bg-sidebar-rgb: 25 22 20;
+  --bg-input-rgb: 24 21 19;
+  --bg-elevated-rgb: 21 18 16;
+  --bg-hover-rgb: 34 29 26;
+  --text-primary-rgb: 247 240 230;
+  --text-secondary-rgb: 209 194 175;
+  --text-muted-rgb: 142 127 112;
+  --border-color-rgb: 42 34 29;
+  --border-light-rgb: 66 53 45;
+  --accent-color-rgb: 199 164 91;
+  --accent-hover-rgb: 221 185 119;
+  --success-color-rgb: 74 222 128;
+  --danger-color-rgb: 248 113 113;
+  --warning-color-rgb: 251 191 36;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 12px 30px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.42);
+  --shadow-glow: 0 0 0 3px rgba(199, 164, 91, 0.16);
+  --pro-gradient: linear-gradient(135deg, #a36a11, #f0a438);
+  --pro-color-start: #d68a16;
+  --pro-color-end: #f0a438;
+  --pro-soft: rgba(240, 164, 56, 0.12);
+  --panel-overlay: rgba(0, 0, 0, 0.42);
+  --titlebar-hover: rgba(247, 240, 230, 0.08);
+  --surface-soft: rgba(255, 246, 235, 0.04);
+  --surface-soft-strong: rgba(255, 246, 235, 0.08);
+  --theme-card-shadow: 0 24px 56px rgba(0, 0, 0, 0.42);
+  --theme-card-glow: rgba(199, 164, 91, 0.24);
+  --glass-bg: rgba(21, 18, 16, 0.8);
+  --glass-blur: blur(16px);
+  --glass-border: 1px solid rgba(247, 240, 230, 0.08);
+}
+
+:root[data-theme='aurora-mint'] {
+  --font-body: 'Manrope', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Manrope', 'Noto Sans SC', sans-serif;
+  --bg-deep: #eef8f5;
+  --bg-primary: #fbfffd;
+  --bg-sidebar: #dff5ef;
+  --bg-input: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-hover: #d2eee6;
+  --text-primary: #0f2b2a;
+  --text-secondary: #335c59;
+  --text-muted: #7c9d99;
+  --border-color: #d7ebe6;
+  --border-light: #bdd9d3;
+  --border-subtle: rgba(15, 43, 42, 0.08);
+  --progress-bg: #c5dfd9;
+  --accent-color: #0ea5a4;
+  --accent-hover: #0b8b8a;
+  --accent-soft: rgba(14, 165, 164, 0.12);
+  --accent-glow: rgba(14, 165, 164, 0.22);
+  --accent-strong: #08716f;
+  --accent-gradient: linear-gradient(135deg, #0ea5a4 0%, #5fd6cb 100%);
+  --success-color: #22c55e;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+  --bg-deep-rgb: 238 248 245;
+  --bg-primary-rgb: 251 255 253;
+  --bg-sidebar-rgb: 223 245 239;
+  --bg-input-rgb: 255 255 255;
+  --bg-elevated-rgb: 255 255 255;
+  --bg-hover-rgb: 210 238 230;
+  --text-primary-rgb: 15 43 42;
+  --text-secondary-rgb: 51 92 89;
+  --text-muted-rgb: 124 157 153;
+  --border-color-rgb: 215 235 230;
+  --border-light-rgb: 189 217 211;
+  --accent-color-rgb: 14 165 164;
+  --accent-hover-rgb: 11 139 138;
+  --success-color-rgb: 34 197 94;
+  --danger-color-rgb: 239 68 68;
+  --warning-color-rgb: 245 158 11;
+  --shadow-sm: 0 1px 2px rgba(15, 43, 42, 0.06);
+  --shadow-md: 0 8px 20px rgba(15, 43, 42, 0.09);
+  --shadow-lg: 0 18px 40px rgba(14, 165, 164, 0.14);
+  --shadow-glow: 0 0 0 3px rgba(14, 165, 164, 0.16);
+  --pro-gradient: linear-gradient(135deg, #14b8a6, #06b6d4);
+  --pro-color-start: #14b8a6;
+  --pro-color-end: #06b6d4;
+  --pro-soft: rgba(20, 184, 166, 0.12);
+  --panel-overlay: rgba(15, 43, 42, 0.2);
+  --titlebar-hover: rgba(15, 43, 42, 0.06);
+  --surface-soft: rgba(255, 255, 255, 0.68);
+  --surface-soft-strong: rgba(255, 255, 255, 0.9);
+  --theme-card-shadow: 0 18px 40px rgba(14, 165, 164, 0.16);
+  --theme-card-glow: rgba(14, 165, 164, 0.24);
+  --glass-bg: rgba(255, 255, 255, 0.78);
+  --glass-blur: blur(14px);
+  --glass-border: 1px solid rgba(15, 43, 42, 0.06);
+}
+
+:root[data-theme='violet-velvet'] {
+  --font-body: 'DM Sans', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Playfair Display', 'Noto Serif SC', serif;
+  --bg-deep: #141126;
+  --bg-primary: #1b1731;
+  --bg-sidebar: #211c3b;
+  --bg-input: #252042;
+  --bg-elevated: #211c39;
+  --bg-hover: #2c2551;
+  --text-primary: #f3efff;
+  --text-secondary: #c6bfeb;
+  --text-muted: #978fc0;
+  --border-color: #352d59;
+  --border-light: #4a3f7e;
+  --border-subtle: rgba(243, 239, 255, 0.08);
+  --progress-bg: #4a3f7e;
+  --accent-color: #a855f7;
+  --accent-hover: #c084fc;
+  --accent-soft: rgba(168, 85, 247, 0.14);
+  --accent-glow: rgba(168, 85, 247, 0.24);
+  --accent-strong: #8b33e8;
+  --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%);
+  --success-color: #34d399;
+  --danger-color: #fb7185;
+  --warning-color: #f59e0b;
+  --bg-deep-rgb: 20 17 38;
+  --bg-primary-rgb: 27 23 49;
+  --bg-sidebar-rgb: 33 28 59;
+  --bg-input-rgb: 37 32 66;
+  --bg-elevated-rgb: 33 28 57;
+  --bg-hover-rgb: 44 37 81;
+  --text-primary-rgb: 243 239 255;
+  --text-secondary-rgb: 198 191 235;
+  --text-muted-rgb: 151 143 192;
+  --border-color-rgb: 53 45 89;
+  --border-light-rgb: 74 63 126;
+  --accent-color-rgb: 168 85 247;
+  --accent-hover-rgb: 192 132 252;
+  --success-color-rgb: 52 211 153;
+  --danger-color-rgb: 251 113 133;
+  --warning-color-rgb: 245 158 11;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 10px 24px rgba(7, 4, 23, 0.24);
+  --shadow-lg: 0 24px 56px rgba(88, 28, 135, 0.22);
+  --shadow-glow: 0 0 0 3px rgba(168, 85, 247, 0.18);
+  --pro-gradient: linear-gradient(135deg, #8b5cf6, #ec4899);
+  --pro-color-start: #8b5cf6;
+  --pro-color-end: #ec4899;
+  --pro-soft: rgba(139, 92, 246, 0.14);
+  --panel-overlay: rgba(10, 8, 22, 0.48);
+  --titlebar-hover: rgba(243, 239, 255, 0.08);
+  --surface-soft: rgba(255, 255, 255, 0.04);
+  --surface-soft-strong: rgba(255, 255, 255, 0.08);
+  --theme-card-shadow: 0 24px 56px rgba(88, 28, 135, 0.28);
+  --theme-card-glow: rgba(236, 72, 153, 0.22);
+  --glass-bg: rgba(27, 23, 49, 0.74);
+  --glass-blur: blur(16px);
+  --glass-border: 1px solid rgba(243, 239, 255, 0.08);
+}
 
 /* 全局重置 */
 *,
@@ -23,13 +264,7 @@ body {
 }
 
 body {
-  font-family:
-    'DM Sans',
-    'Noto Sans SC',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
+  font-family: var(--font-body);
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
@@ -47,7 +282,7 @@ body {
 
 /* 文本选区颜色 */
 ::selection {
-  background: rgba($accent-color, 0.15);
+  background: rgb($accent-color-rgb / 0.15);
   color: $text-primary;
 }
 
@@ -68,13 +303,13 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
+  background: rgb($text-muted-rgb / 0.35);
   border-radius: 10px;
   transition: background $transition-normal;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.55);
+  background: rgb($text-muted-rgb / 0.55);
 }
 
 /* 全局链接重置 */

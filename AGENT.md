@@ -38,6 +38,62 @@
 - **风格**: 极致极简、暗色模式优先、无边框窗口。
 - **交互**: 快速、流畅、无多余步骤。
 
+## 3.4 Hover 效果规范 (Hover Effect Guidelines)
+
+**禁止使用上浮位移效果**（如 `transform: translateY()`），这类效果显得不够高级且会造成布局抖动。
+
+**推荐的 Hover 效果方案**：
+
+1. **光影扫过效果** - 使用 `::before` 伪元素创建从左到右扫过的光效
+2. **边框光晕渐变** - 通过 `box-shadow` 和 `border-color` 的细腻变化
+3. **阴影扩散** - 使用多层次阴影营造深度感
+4. **透明度/颜色过渡** - 背景色或透明度的平滑过渡
+
+**示例代码**：
+
+```scss
+.card {
+  position: relative;
+  overflow: hidden;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.06), transparent);
+    transition: left 0.6s ease;
+    pointer-events: none;
+  }
+
+  &:hover {
+    border-color: rgba($accent-color, 0.35);
+    box-shadow:
+      0 0 0 1px rgba($accent-color, 0.15),
+      0 8px 24px -8px rgba(0, 0, 0, 0.24);
+    background: $surface-soft-strong;
+
+    &::before {
+      left: 100%;
+    }
+  }
+}
+```
+
+### 交互设计原则
+
+- 所有可点击元素必须有 `cursor: pointer`
+- Hover 状态应提供清晰的视觉反馈（颜色、阴影、边框）
+- 过渡时间控制在 150-300ms 之间
+- 避免使用 emoji 作为 UI 图标，使用 SVG 图标（Heroicons、Lucide）
+- 保持焦点状态可见，支持键盘导航
+
 ## 4. 工作流 (Workflow)
 
 1. **思考 (Deep Thinking)**: 在执行复杂任务前，先在思维链中用中文推演。
