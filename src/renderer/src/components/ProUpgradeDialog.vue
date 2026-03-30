@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
+import { FolderOpen, ListChecks, Keyboard, Palette } from 'lucide-vue-next'
 
 const props = defineProps<{
   visible: boolean
@@ -11,8 +12,7 @@ const emit = defineEmits<{
 
 const contentRef = ref<HTMLElement | null>(null)
 
-// 当前选中的套餐
-const selectedPlan = ref<'monthly' | 'yearly'>('yearly')
+const proPrice = '23'
 
 function handleClose(): void {
   emit('close')
@@ -20,6 +20,7 @@ function handleClose(): void {
 
 function handlePurchase(): void {
   // V2 仅为 UI 骨架，暂不对接真实支付
+  window.dispatchEvent(new CustomEvent('pro:status-changed'))
   alert('功能开发中，敬请期待！')
 }
 
@@ -51,44 +52,29 @@ watch(
           <!-- 头部 -->
           <div class="pro-header">
             <span class="pro-badge">PRO</span>
-            <h2 class="pro-title">升级 Pro 会员</h2>
-            <p class="pro-desc">解锁全部高级功能，让效率起飞</p>
+            <h2 class="pro-title">升级 Pro 永久版</h2>
+            <p class="pro-desc">一次买断，永久解锁全部高级功能</p>
           </div>
 
           <!-- 权益列表 -->
           <ul class="pro-features">
-            <li><span class="feature-icon">📂</span>无限分类数量</li>
-            <li><span class="feature-icon">📋</span>子待办（子任务）功能</li>
-            <li><span class="feature-icon">⌨️</span>子任务快捷键设置</li>
-            <li><span class="feature-icon">🎨</span>更多主题（即将推出）</li>
+            <li><FolderOpen :size="16" class="feature-icon" />无限分类数量</li>
+            <li><ListChecks :size="16" class="feature-icon" />子待办（子任务）功能</li>
+            <li><Keyboard :size="16" class="feature-icon" />子任务快捷键设置</li>
+            <li><Palette :size="16" class="feature-icon" />更多主题（即将推出）</li>
           </ul>
 
-          <!-- 套餐选择 -->
-          <div class="plan-options">
-            <button
-              class="plan-card"
-              :class="{ active: selectedPlan === 'monthly' }"
-              @click="selectedPlan = 'monthly'"
-            >
-              <span class="plan-period">月度</span>
-              <span class="plan-price">¥9.9<small>/月</small></span>
-            </button>
-            <button
-              class="plan-card"
-              :class="{ active: selectedPlan === 'yearly' }"
-              @click="selectedPlan = 'yearly'"
-            >
-              <span class="plan-best">推荐</span>
-              <span class="plan-period">年度</span>
-              <span class="plan-price">¥68<small>/年</small></span>
-              <span class="plan-save">省 ¥50.8</span>
-            </button>
+          <div class="plan-card plan-card--single">
+            <span class="plan-best">当前定价</span>
+            <span class="plan-period">永久买断</span>
+            <span class="plan-price">¥{{ proPrice }}<small>/一次</small></span>
+            <span class="plan-save">后续功能持续包含在内</span>
           </div>
 
           <!-- 操作按钮 -->
           <div class="pro-actions">
             <button class="pro-btn pro-btn--primary" @click="handlePurchase">
-              立即升级
+              23 元永久解锁
             </button>
             <button class="pro-btn pro-btn--secondary" @click="handleClose">
               以后再说
@@ -129,14 +115,30 @@ watch(
 
 .pro-content {
   width: 400px;
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(24px) saturate(1.6);
-  -webkit-backdrop-filter: blur(24px) saturate(1.6);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: $bg-elevated;
+  border: 1px solid $border-color;
   border-radius: $radius-xl;
-  box-shadow: $shadow-lg;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.06);
   padding: $spacing-2xl;
   outline: none;
+  position: relative;
+  overflow: hidden;
+
+  // 顶部品牌光晕装饰
+  &::before {
+    content: '';
+    position: absolute;
+    top: -60%;
+    left: -20%;
+    width: 140%;
+    height: 100%;
+    background: radial-gradient(
+      ellipse at center,
+      rgba($pro-color-start, 0.06) 0%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
 }
 
 // ─── 头部 ───
@@ -148,7 +150,7 @@ watch(
 .pro-badge {
   display: inline-block;
   padding: 2px $spacing-md;
-  background: linear-gradient(135deg, #f59e0b, #f97316);
+  background: $pro-gradient;
   color: white;
   font-size: $font-xs;
   font-weight: 700;
@@ -189,22 +191,13 @@ watch(
   }
 
   .feature-icon {
-    font-size: 14px;
-    width: 20px;
-    text-align: center;
+    color: $accent-color;
     flex-shrink: 0;
   }
 }
 
-// ─── 套餐选择 ───
-.plan-options {
-  display: flex;
-  gap: $spacing-md;
-  margin-bottom: $spacing-xl;
-}
-
+// ─── 买断方案展示 ───
 .plan-card {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -213,15 +206,11 @@ watch(
   border: 2px solid $border-color;
   border-radius: $radius-lg;
   background: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
   transition: all $transition-normal;
   position: relative;
+  margin-bottom: $spacing-xl;
 
-  &:hover {
-    border-color: $accent-color;
-  }
-
-  &.active {
+  &--single {
     border-color: $accent-color;
     background: $accent-soft;
   }
@@ -229,10 +218,11 @@ watch(
 
 .plan-best {
   position: absolute;
-  top: -10px;
+  top: 0;
   right: -4px;
+  transform: translateY(-50%);
   padding: 1px $spacing-sm;
-  background: linear-gradient(135deg, #f59e0b, #f97316);
+  background: $pro-gradient;
   color: white;
   font-size: 10px;
   font-weight: 600;
@@ -293,9 +283,12 @@ watch(
   &--secondary {
     background: transparent;
     color: $text-muted;
+    border: 1px solid $border-color;
 
     &:hover {
       color: $text-secondary;
+      border-color: $border-light;
+      background: rgba(0, 0, 0, 0.02);
     }
   }
 }

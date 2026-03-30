@@ -4,6 +4,7 @@ import { Settings, X, Power, MonitorOff, Trash2, Download, Info, Keyboard, Refre
 import { useHotkeys, HOTKEY_LABELS, keyToLabel, type HotkeyAction } from '../composables/useHotkeys'
 import { useConfirm } from '../composables/useConfirm'
 import { useAuthStore } from '../store/auth'
+import { ensureFeatureAccess } from '../composables/useFeatureGate'
 import UserProfile from './UserProfile.vue'
 
 const props = defineProps<{
@@ -80,8 +81,16 @@ const handleInstallUpdate = async () => {
 }
 
 // ─── 快捷键设置 ──────────────────────────────────────────────────────
-const { hotkeyConfig, isEnabled, updateBinding, resetAllBindings } = useHotkeys()
+const { hotkeyConfig, isEnabled, updateBinding, resetBinding, resetAllBindings } = useHotkeys()
 const { confirm } = useConfirm()
+
+function promptUpgrade() {
+  window.dispatchEvent(new CustomEvent('pro:upgrade-required'))
+}
+
+function isProLockedAction(action: HotkeyAction): boolean {
+  return action === 'toggleExpand' && !ensureFeatureAccess('subtasks')
+}
 
 /** 恢复默认：通过 useConfirm 弹出二次确认 */
 const handleResetAll = async () => {
@@ -96,6 +105,11 @@ const conflictMessage = ref('')
 
 /** 开始录键 */
 const startRecording = (action: HotkeyAction) => {
+  if (isProLockedAction(action)) {
+    promptUpgrade()
+    return
+  }
+
   recordingAction.value = action
   conflictMessage.value = ''
   // 禁用快捷键系统，防止录键时触发操作
@@ -167,6 +181,20 @@ watch(
       cancelRecording()
     }
   }
+)
+
+watch(
+  () => authStore.isPro,
+  (isPro) => {
+    if (isPro) return
+
+    resetBinding('toggleExpand')
+
+    if (recordingAction.value === 'toggleExpand') {
+      cancelRecording()
+    }
+  },
+  { immediate: true }
 )
 
 // 所有可配置的快捷键 action 列表
@@ -292,7 +320,7 @@ onUnmounted(() => {
       <div class="settings-panel__body">
         <!-- 用户信息 -->
         <UserProfile
-          @upgrade="emit('show-pro-upgrade')"
+          @upgrade="promptUpgrade()"
           @logout="authStore.logout()"
         />
 
@@ -383,8 +411,8 @@ onUnmounted(() => {
                 v-else
                 class="hotkey-key"
                 :class="{ 'hotkey-key--pro-locked': action === 'toggleExpand' && !authStore.isPro }"
-                :title="action === 'toggleExpand' && !authStore.isPro ? '升级 Pro 解锁' : '点击修改快捷键'"
-                @click="action !== 'toggleExpand' || authStore.isPro ? startRecording(action) : emit('show-pro-upgrade')"
+                :title="isProLockedAction(action) ? '升级 Pro 解锁' : '点击修改快捷键'"
+                @click="isProLockedAction(action) ? promptUpgrade() : startRecording(action)"
               >
                 {{ hotkeyConfig[action].label }}
               </span>

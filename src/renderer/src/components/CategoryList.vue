@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { store } from '../store'
 import { useConfirm } from '../composables/useConfirm'
 import { useContextMenu } from '../composables/useContextMenu'
 import { useAuthStore } from '../store/auth'
+import { ensureFeatureAccess } from '../composables/useFeatureGate'
+import { MAX_FREE_CATEGORIES } from '../constants/proFeatures'
 import CheckinButton from './CheckinButton.vue'
 import { Plus, Settings } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
 
-// 普通用户分类数量上限
-const MAX_FREE_CATEGORIES = 2
+const rootRef = ref<HTMLElement | null>(null)
+const isCompact = ref(false)
+const isNarrow = ref(false)
+let resizeObserver: ResizeObserver | null = null
 
 const emit = defineEmits<{
   'open-settings': []
@@ -24,7 +28,29 @@ const {
   close: closeContextMenu
 } = useContextMenu<number>()
 
-onMounted(() => store.fetchCategories())
+function updateLayoutMode(width: number): void {
+  isCompact.value = width <= 156
+  isNarrow.value = width <= 128
+}
+
+onMounted(() => {
+  void store.fetchCategories()
+
+  if (!rootRef.value) return
+
+  updateLayoutMode(rootRef.value.clientWidth)
+  resizeObserver = new ResizeObserver((entries) => {
+    const entry = entries[0]
+    if (!entry) return
+    updateLayoutMode(entry.contentRect.width)
+  })
+  resizeObserver.observe(rootRef.value)
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
 
 const newCategoryName = ref('')
 const isAdding = ref(false)
@@ -46,9 +72,7 @@ const handleAddCategory = async () => {
 }
 
 const startAdding = async () => {
-  // 非 Pro 用户检查分类数量限制
-  if (!authStore.isPro && store.categories.length >= MAX_FREE_CATEGORIES) {
-    emit('show-pro-upgrade')
+  if (!ensureFeatureAccess('extraCategories', { categoryCount: store.categories.length }, { prompt: true })) {
     return
   }
   isAdding.value = true
@@ -91,14 +115,21 @@ const cancelRename = () => {
 </script>
 
 <template>
-  <div class="category-list">
-    <div class="category-list__header">
-      <span class="category-list__header-label">分类</span>
-    </div>
+  <div
+    ref="rootRef"
+    class="category-list"
+    :class="{
+      'category-list--compact': isCompact,
+      'category-list--narrow': isNarrow
+    }"
+  >
+    <!-- 等级信息 + 签到 -->
+    <CheckinButton :compact="isCompact" :narrow="isNarrow" />
 
     <div class="category-list__content">
-      <!-- 等级信息 + 签到 -->
-      <CheckinButton />
+      <div class="category-list__header">
+        <span class="category-list__header-label">分类</span>
+      </div>
 
       <ul>
         <li
@@ -148,18 +179,18 @@ const cancelRename = () => {
 
     <div class="category-list__footer">
       <button v-if="!isAdding" class="category-list__add-btn" @click="startAdding">
-        <Plus class="category-list__add-icon" :size="12" />
-        新建分类
+          <Plus class="category-list__add-icon" :size="12" />
+          <span class="category-list__btn-label">新建分类</span>
         <span
           v-if="!authStore.isPro && store.categories.length >= MAX_FREE_CATEGORIES"
           class="category-list__pro-hint"
         >PRO</span>
       </button>
       <div class="category-list__footer-divider"></div>
-      <button class="category-list__settings-btn" @click="emit('open-settings')">
-        <Settings :size="14" />
-        <span>设置</span>
-      </button>
+        <button class="category-list__settings-btn" @click="emit('open-settings')">
+          <Settings :size="14" />
+          <span class="category-list__btn-label">设置</span>
+        </button>
     </div>
 
     <!-- 右键菜单 -->
@@ -185,14 +216,20 @@ const cancelRename = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
   background: $bg-sidebar;
   border-right: 1px solid $border-subtle;
 
   &__header {
-    padding: $spacing-lg $spacing-lg $spacing-sm;
+    padding: $spacing-md $spacing-lg $spacing-sm;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: linear-gradient(180deg, rgba($bg-sidebar, 0.98) 0%, rgba($bg-sidebar, 0.92) 100%);
+    backdrop-filter: blur(10px);
   }
 
   &__header-label {
@@ -206,12 +243,13 @@ const cancelRename = () => {
   &__content {
     flex: 1;
     overflow-y: auto;
-    padding: $spacing-xs 0;
+    padding: 0 0 $spacing-sm;
   }
 
   &__footer {
     padding: $spacing-sm $spacing-md;
     border-top: 1px solid $border-subtle;
+    min-width: 0;
   }
 
   &__footer-divider {
@@ -225,6 +263,7 @@ const cancelRename = () => {
     align-items: center;
     gap: $spacing-sm;
     width: 100%;
+    min-width: 0;
     padding: $spacing-sm $spacing-md;
     background: transparent;
     border: none;
@@ -244,6 +283,7 @@ const cancelRename = () => {
     display: flex;
     align-items: center;
     width: 100%;
+    min-width: 0;
     padding: $spacing-sm $spacing-md;
     background: transparent;
     border: 1px dashed $border-light;
@@ -264,12 +304,21 @@ const cancelRename = () => {
     width: 12px;
     height: 12px;
     margin-right: $spacing-sm;
+    flex-shrink: 0;
+  }
+
+  &__btn-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__pro-hint {
     margin-left: auto;
+    flex-shrink: 0;
     padding: 0 6px;
-    background: linear-gradient(135deg, #f59e0b, #f97316);
+    background: $pro-gradient;
     color: white;
     font-size: 9px;
     font-weight: 700;
@@ -284,6 +333,8 @@ const cancelRename = () => {
 
   &__input {
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     background: $bg-input;
     color: $text-primary;
     font-size: $font-sm;
@@ -302,6 +353,59 @@ const cancelRename = () => {
       color: $text-muted;
     }
   }
+
+  &--compact {
+    .category-list__header {
+      padding: $spacing-sm $spacing-md $spacing-xs;
+    }
+
+    .category-list__footer {
+      padding-inline: $spacing-sm;
+    }
+
+    .category-list__add-btn,
+    .category-list__settings-btn {
+      justify-content: center;
+      padding-inline: $spacing-sm;
+      gap: $spacing-xs;
+    }
+
+    .category-list__pro-hint {
+      margin-left: $spacing-xs;
+    }
+
+    .category-list__add-icon {
+      margin-right: 0;
+    }
+  }
+
+  &--narrow {
+    .category-list__header {
+      padding: $spacing-sm $spacing-sm $spacing-xs;
+    }
+
+    .category-list__header-label,
+    .category-list__btn-label {
+      display: none;
+    }
+
+    .category-list__add-btn,
+    .category-list__settings-btn {
+      height: 36px;
+      padding-inline: $spacing-xs;
+    }
+
+    .category-list__pro-hint {
+      margin-left: $spacing-xs;
+      padding: 0 4px;
+      font-size: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .category-list__input-wrapper {
+      padding-inline: $spacing-sm;
+    }
+  }
 }
 
 .category-item {
@@ -309,6 +413,11 @@ const cancelRename = () => {
   align-items: center;
   padding: $spacing-sm $spacing-lg;
   margin: 0 $spacing-sm;
+
+  & + & {
+    margin-top: 2px;
+  }
+  min-width: 0;
   font-size: $font-sm;
   color: $text-secondary;
   cursor: pointer;
@@ -361,6 +470,7 @@ const cancelRename = () => {
     background: $accent-soft;
     border-radius: 10px;
   }
+
   &--editing {
     padding: $spacing-xs $spacing-md;
     margin: 0;
@@ -369,6 +479,8 @@ const cancelRename = () => {
   // inline 重命名输入框 — 与新建分类输入框样式一致
   &__edit-input {
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     background: $bg-input;
     color: $text-primary;
     font-size: $font-sm;
@@ -383,6 +495,54 @@ const cancelRename = () => {
       border-color: $accent-color;
       box-shadow: 0 0 0 3px $accent-soft;
     }
+  }
+}
+
+.category-list--compact {
+  .category-item {
+    padding-inline: $spacing-md;
+    margin-inline: $spacing-xs;
+  }
+
+  .category-item__badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: $spacing-xs;
+    line-height: 18px;
+  }
+}
+
+.category-list--narrow {
+  .category-item {
+    padding-inline: $spacing-sm;
+    gap: 6px;
+  }
+
+  .category-list__content,
+  .category-list__footer {
+    min-width: 0;
+  }
+
+  .category-item__name {
+    font-size: $font-xs;
+  }
+
+  .category-item__badge {
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    margin-left: 4px;
+    font-size: 10px;
+    line-height: 16px;
+  }
+
+  .category-item--editing {
+    padding-inline: $spacing-xs;
+  }
+
+  .category-item__edit-input {
+    padding-inline: $spacing-sm;
   }
 }
 

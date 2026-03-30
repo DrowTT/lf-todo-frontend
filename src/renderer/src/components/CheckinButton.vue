@@ -3,9 +3,21 @@
  * 签到按钮组件 — 每日签到、经验值进度展示
  * 包含签到动效、经验值弹出提示、进度条
  */
-import { ref, computed, onMounted } from 'vue'
-import { getLevelInfo, checkin, type LevelInfo } from '../api/level'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { getLevelInfo, checkin, type LevelInfo, type XpGainResult } from '../api/level'
 import LevelBadge from './LevelBadge.vue'
+import { CalendarCheck, Check, Sparkles } from 'lucide-vue-next'
+
+const props = withDefaults(
+  defineProps<{
+    compact?: boolean
+    narrow?: boolean
+  }>(),
+  {
+    compact: false,
+    narrow: false
+  }
+)
 
 const emit = defineEmits<{
   /** 签到或等级信息更新时触发，父组件可根据此刷新 */
@@ -48,14 +60,10 @@ async function handleCheckin(): Promise<void> {
   isCheckinLoading.value = true
   try {
     const res = await checkin()
-    xpGained.value = res.data.xpGain
     checkinSuccess.value = true
 
     // 显示经验值弹出提示
-    showXpToast.value = true
-    setTimeout(() => {
-      showXpToast.value = false
-    }, 2000)
+    showXpGain(res.data.xpGain)
 
     // 刷新等级信息
     await fetchLevel()
@@ -66,8 +74,32 @@ async function handleCheckin(): Promise<void> {
   }
 }
 
+function showXpGain(xpGain: number): void {
+  if (xpGain <= 0) return
+
+  xpGained.value = xpGain
+  showXpToast.value = true
+  setTimeout(() => {
+    showXpToast.value = false
+  }, 2000)
+}
+
+async function handleTaskComplete(event: Event): Promise<void> {
+  const customEvent = event as CustomEvent<XpGainResult>
+  const payload = customEvent.detail
+  if (!payload) return
+
+  showXpGain(payload.xpGain)
+  await fetchLevel()
+}
+
 onMounted(() => {
   void fetchLevel()
+  window.addEventListener('level:task-complete', handleTaskComplete as EventListener)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('level:task-complete', handleTaskComplete as EventListener)
 })
 
 // 暴露刷新方法，供父组件调用
@@ -75,11 +107,17 @@ defineExpose({ fetchLevel })
 </script>
 
 <template>
-  <div class="checkin-section">
+  <div
+    class="checkin-section"
+    :class="{
+      'checkin-section--compact': props.compact,
+      'checkin-section--narrow': props.narrow
+    }"
+  >
     <!-- 等级信息展示 -->
     <div v-if="levelInfo" class="level-info">
       <div class="level-info__header">
-        <LevelBadge :level="levelInfo.currentLevel" />
+        <LevelBadge :level="levelInfo.currentLevel" :compact="props.compact" />
         <span class="level-info__xp">{{ levelInfo.totalXp }} XP</span>
       </div>
 
@@ -123,11 +161,11 @@ defineExpose({ fetchLevel })
         签到中...
       </template>
       <template v-else-if="checkinDone">
-        <span class="checkin-btn__icon">✓</span>
+        <Check :size="14" :stroke-width="2.5" />
         已签到
       </template>
       <template v-else>
-        <span class="checkin-btn__icon">📅</span>
+        <CalendarCheck :size="14" />
         每日签到 +5 XP
       </template>
     </button>
@@ -135,7 +173,8 @@ defineExpose({ fetchLevel })
     <!-- 经验值获得提示 -->
     <Transition name="xp-toast">
       <div v-if="showXpToast" class="xp-toast">
-        +{{ xpGained }} XP ✨
+        <Sparkles :size="12" />
+        +{{ xpGained }} XP
       </div>
     </Transition>
   </div>
@@ -148,6 +187,7 @@ defineExpose({ fetchLevel })
   padding: $spacing-md $spacing-lg;
   border-bottom: 1px solid $border-subtle;
   position: relative;
+  min-width: 0;
 }
 
 // ─── 等级信息 ───
@@ -159,12 +199,15 @@ defineExpose({ fetchLevel })
     align-items: center;
     justify-content: space-between;
     margin-bottom: $spacing-xs;
+    gap: $spacing-xs;
+    min-width: 0;
   }
 
   &__xp {
     font-size: $font-xs;
     color: $text-muted;
     font-weight: 500;
+    white-space: nowrap;
   }
 
   &__progress {
@@ -172,11 +215,13 @@ defineExpose({ fetchLevel })
     align-items: center;
     gap: $spacing-sm;
     margin-bottom: $spacing-xs;
+    min-width: 0;
   }
 
   &__daily {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: $spacing-md;
   }
 }
@@ -184,16 +229,20 @@ defineExpose({ fetchLevel })
 // ─── 进度条 ───
 .progress-bar {
   flex: 1;
-  height: 4px;
-  background: $border-color;
-  border-radius: 2px;
+  min-width: 0;
+  height: 6px;
+  background: rgba($border-color, 0.5);
+  border-radius: 3px;
   overflow: hidden;
 
   &__fill {
     height: 100%;
-    border-radius: 2px;
-    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 3px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     min-width: 2px;
+    // 发光效果增强视觉存在感
+    box-shadow: 0 0 6px currentColor;
+    opacity: 0.9;
   }
 
   &__text {
@@ -222,6 +271,7 @@ defineExpose({ fetchLevel })
   justify-content: center;
   gap: $spacing-xs;
   width: 100%;
+  min-width: 0;
   height: 32px;
   border: 1px dashed $accent-color;
   border-radius: $radius-md;
@@ -252,9 +302,18 @@ defineExpose({ fetchLevel })
     opacity: 0.7;
   }
 
-  // 签到成功动效
+  // 签到成功动效 —— 波纹扩散
   &--success {
     animation: checkin-pulse 0.5s ease;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: rgba($success-color, 0.12);
+      animation: checkin-ripple 0.8s ease-out forwards;
+    }
   }
 
   // 加载中
@@ -263,9 +322,6 @@ defineExpose({ fetchLevel })
     opacity: 0.7;
   }
 
-  &__icon {
-    font-size: $font-md;
-  }
 
   &__spinner {
     width: 14px;
@@ -277,13 +333,74 @@ defineExpose({ fetchLevel })
   }
 }
 
+.checkin-section--compact {
+  padding-inline: $spacing-md;
+
+  .level-info__progress {
+    gap: $spacing-xs;
+  }
+
+  .level-info__daily {
+    gap: $spacing-xs $spacing-sm;
+  }
+
+  .daily-stat {
+    font-size: 11px;
+  }
+
+  .checkin-btn {
+    font-size: $font-xs;
+  }
+}
+
+.checkin-section--narrow {
+  padding-inline: $spacing-sm;
+
+  .level-info__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .level-info__xp {
+    font-size: 11px;
+  }
+
+  .level-info__progress {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .progress-bar__text {
+    font-size: 9px;
+  }
+
+  .daily-stat {
+    font-size: 10px;
+  }
+
+  .checkin-btn {
+    height: 30px;
+    padding-inline: $spacing-xs;
+    font-size: 11px;
+  }
+
+  .xp-toast {
+    right: $spacing-sm;
+    padding-inline: $spacing-sm;
+    font-size: $font-xs;
+  }
+}
+
 // ─── 经验值弹出提示 ───
 .xp-toast {
   position: absolute;
   top: -8px;
   right: $spacing-lg;
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
   padding: $spacing-xs $spacing-md;
-  background: linear-gradient(135deg, #f59e0b, #f97316);
+  background: $pro-gradient;
   color: white;
   font-size: $font-sm;
   font-weight: 700;
@@ -302,6 +419,11 @@ defineExpose({ fetchLevel })
   0% { transform: scale(1); }
   50% { transform: scale(1.03); }
   100% { transform: scale(1); }
+}
+
+@keyframes checkin-ripple {
+  from { transform: scale(0.8); opacity: 1; }
+  to { transform: scale(1.5); opacity: 0; }
 }
 
 // 经验值提示进出动画

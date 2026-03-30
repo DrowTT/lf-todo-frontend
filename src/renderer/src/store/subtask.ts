@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { db, Task } from '../db'
 import { useTaskStore } from './task'
 import { useToast } from '../composables/useToast'
+import { useAuthStore } from './auth'
 
 // ─── 展开状态持久化辅助 ─────────────────────────────────────────
 // 统一的 localStorage 键名前缀：lf-todo:（参见 useSidebarResize.ts 和 categoryStore）
@@ -44,6 +45,11 @@ export const useSubTaskStore = defineStore('subTask', () => {
   }
 
   function loadExpandedForCategory(categoryId: number) {
+    if (!useAuthStore().isPro) {
+      expandedTaskIds.value = new Set()
+      return
+    }
+
     expandedTaskIds.value = loadExpandedIds(categoryId)
   }
 

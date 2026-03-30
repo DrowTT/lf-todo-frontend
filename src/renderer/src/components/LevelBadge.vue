@@ -57,21 +57,24 @@ const levelColor = computed(() => getLevelColor(props.level))
 .level-badge {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 0 6px;
+  gap: $spacing-xs;
+  padding: 0 $spacing-sm;
   font-size: 10px;
   font-weight: 600;
   border: 1px solid;
-  border-radius: 3px;
+  border-radius: $radius-sm;
   line-height: 18px;
   white-space: nowrap;
   transition: all $transition-fast;
+  // 使用 currentColor 自动适配等级颜色的微妙背景
+  background: color-mix(in srgb, currentColor 8%, transparent);
 
   // 紧凑模式
   &--compact {
-    padding: 0 4px;
+    padding: 0 $spacing-xs;
     font-size: 9px;
     line-height: 16px;
+    background: color-mix(in srgb, currentColor 6%, transparent);
   }
 
   // 传奇段位 — 赤金渐变 + 发光效果

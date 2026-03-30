@@ -20,7 +20,6 @@ interface UserProfile {
   email: string
   nickname: string
   isPro: boolean
-  proExpireAt: string | null
   createdAt: string
   level: {
     totalXp: number

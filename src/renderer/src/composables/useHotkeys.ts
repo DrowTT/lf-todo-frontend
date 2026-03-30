@@ -2,6 +2,7 @@ import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useHoverTarget } from './useHoverTarget'
 import { useConfirm } from './useConfirm'
 import { store } from '../store'
+import { ensureFeatureAccess } from './useFeatureGate'
 
 // ─── 类型定义 ──────────────────────────────────────────────────
 /** 单个快捷键动作标识 */
@@ -159,6 +160,10 @@ function matchAction(normalizedKey: string): HotkeyAction | null {
   return null
 }
 
+function isLockedForFreeUser(action: HotkeyAction): boolean {
+  return action === 'toggleExpand' && !ensureFeatureAccess('subtasks')
+}
+
 /**
  * 快捷键系统 composable
  *
@@ -211,7 +216,7 @@ export function useHotkeys() {
       }
       case 'focusInput': {
         const parentId = hoveredParentTaskId.value
-        if (parentId) {
+        if (parentId && ensureFeatureAccess('subtasks')) {
           // 如果悬停的一级待办未展开，先展开它
           if (!store.expandedTaskIds.has(parentId)) {
             await store.toggleExpand(parentId)
@@ -275,6 +280,9 @@ export function useHotkeys() {
     // 匹配动作
     const action = matchAction(normalizedKey)
     if (!action) return
+
+    // 非 Pro 用户不允许触发展开/收起快捷键，直接跳过，避免任何状态变化。
+    if (isLockedForFreeUser(action)) return
 
     // 阻止默认行为
     e.preventDefault()

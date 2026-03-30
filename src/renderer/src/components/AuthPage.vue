@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { sendCode, resetPassword } from '../api/auth'
 import { useAuthStore } from '../store/auth'
+import { CheckSquare } from 'lucide-vue-next'
 
 type AuthMode = 'login' | 'register' | 'reset'
 
@@ -187,7 +188,9 @@ onBeforeUnmount(() => {
 
     <div class="auth-card">
       <div class="auth-header">
-        <div class="auth-logo">✓</div>
+        <div class="auth-logo">
+          <CheckSquare :size="26" :stroke-width="2.5" />
+        </div>
         <h1 class="auth-title">极简待办</h1>
         <p class="auth-subtitle">{{ title }}</p>
       </div>
@@ -282,8 +285,22 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background: $bg-deep;
+  background: linear-gradient(135deg, #e8edf5 0%, #f0f4fa 50%, #e0e8f4 100%);
   position: relative;
+
+  // 微妙的几何网格纹理增加层次感
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      rgba(37, 99, 235, 0.03) 1px,
+      transparent 0
+    );
+    background-size: 32px 32px;
+    pointer-events: none;
+  }
 }
 
 .auth-titlebar {
@@ -300,8 +317,22 @@ onBeforeUnmount(() => {
   padding: $spacing-2xl;
   background: $bg-elevated;
   border-radius: $radius-lg;
-  box-shadow: $shadow-lg;
-  border: 1px solid $border-color;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  position: relative;
+  z-index: 1;
+  animation: card-enter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .auth-header {
@@ -310,17 +341,21 @@ onBeforeUnmount(() => {
 }
 
 .auth-logo {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   margin: 0 auto $spacing-md;
-  background: $accent-color;
+  background: linear-gradient(135deg, $accent-color, #6366f1);
   color: white;
   border-radius: $radius-md;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  transition: transform $transition-normal;
+
+  &:hover {
+    transform: scale(1.05);
+  }
 }
 
 .auth-title {
@@ -390,10 +425,16 @@ onBeforeUnmount(() => {
     &:focus {
       border-color: $accent-color;
       box-shadow: $shadow-glow;
+      background: rgba(37, 99, 235, 0.02);
     }
 
     &::placeholder {
       color: $text-muted;
+      transition: opacity $transition-fast;
+    }
+
+    &:focus::placeholder {
+      opacity: 0.5;
     }
   }
 }

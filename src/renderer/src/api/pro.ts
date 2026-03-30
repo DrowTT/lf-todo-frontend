@@ -5,7 +5,6 @@ import request from './request'
 
 interface ProStatus {
   isPro: boolean
-  proExpireAt: string | null
 }
 
 // ─── API 函数 ───

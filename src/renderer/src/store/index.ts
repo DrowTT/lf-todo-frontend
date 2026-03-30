@@ -1,6 +1,7 @@
 import { useCategoryStore } from './category'
 import { useTaskStore } from './task'
 import { useSubTaskStore } from './subtask'
+import { ensureFeatureAccess } from '../composables/useFeatureGate'
 
 /**
  * 统一协调入口：聚合三个业务域子 store 并暴露兼容原有调用方的接口。
@@ -85,6 +86,12 @@ export const store = {
       return
     }
     await taskStore.fetchTasks(categoryId)
+
+    if (!ensureFeatureAccess('subtasks')) {
+      subTaskStore.reset()
+      return
+    }
+
     subTaskStore.loadExpandedForCategory(categoryId)
     await subTaskStore.fetchExpandedSubTasks(subTaskStore.expandedTaskIds)
   },
@@ -127,28 +134,34 @@ export const store = {
 
   // ─── SubTask Actions ─────────────────────────────────────────
   async fetchSubTasks(parentId: number) {
+    if (!ensureFeatureAccess('subtasks')) return
     await useSubTaskStore().fetchSubTasks(parentId)
   },
 
   async toggleExpand(taskId: number) {
+    if (!ensureFeatureAccess('subtasks')) return
     const categoryId = useCategoryStore().currentCategoryId
     if (!categoryId) return
     await useSubTaskStore().toggleExpand(taskId, categoryId)
   },
 
   async addSubTask(content: string, parentId: number) {
+    if (!ensureFeatureAccess('subtasks')) return
     await useSubTaskStore().addSubTask(content, parentId)
   },
 
   async toggleSubTask(id: number, parentId: number) {
+    if (!ensureFeatureAccess('subtasks')) return
     await useSubTaskStore().toggleSubTask(id, parentId)
   },
 
   async deleteSubTask(id: number, parentId: number) {
+    if (!ensureFeatureAccess('subtasks')) return
     await useSubTaskStore().deleteSubTask(id, parentId)
   },
 
   async updateSubTaskContent(id: number, parentId: number, content: string) {
+    if (!ensureFeatureAccess('subtasks')) return
     await useSubTaskStore().updateSubTaskContent(id, parentId, content)
   }
 }

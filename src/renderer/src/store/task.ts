@@ -89,9 +89,22 @@ export const useTaskStore = defineStore('task', () => {
       }
 
       // 上报经验值到等级系统（fire-and-forget，失败不阻塞主流程）
-      taskComplete(String(id)).catch((e) =>
-        console.warn('[taskStore] 上报任务经验失败（不影响任务完成）:', e)
-      )
+      taskComplete(String(id))
+        .then((res) => {
+          if (res.data.xpGain <= 0) {
+            toast.show(res.data.message || '今日任务经验已达上限')
+            return
+          }
+
+          window.dispatchEvent(
+            new CustomEvent('level:task-complete', {
+              detail: res.data
+            })
+          )
+        })
+        .catch((e) =>
+          console.warn('[taskStore] 上报任务经验失败（不影响任务完成）:', e)
+        )
     }
   }
 

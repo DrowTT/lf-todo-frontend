@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAuthStore } from '../store/auth'
+import { Sparkles } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
 
@@ -63,7 +64,7 @@ function getLevelColor(level: number): string {
         class="action-btn action-btn--upgrade"
         @click="emit('upgrade')"
       >
-        ✨ 升级 Pro
+        <Sparkles :size="12" /> 23 元解锁 Pro
       </button>
       <button class="action-btn action-btn--logout" @click="emit('logout')">
         退出登录
@@ -99,6 +100,8 @@ function getLevelColor(level: number): string {
   font-size: $font-xl;
   font-weight: 700;
   flex-shrink: 0;
+  // 头像外围等级色环
+  box-shadow: 0 0 0 2px $bg-sidebar, 0 0 0 4px var(--level-color, #{$accent-color});
 }
 
 .profile-info {
@@ -127,7 +130,7 @@ function getLevelColor(level: number): string {
 .pro-tag {
   display: inline-block;
   padding: 0 6px;
-  background: linear-gradient(135deg, #f59e0b, #f97316);
+  background: $pro-gradient;
   color: white;
   font-size: 10px;
   font-weight: 700;
@@ -171,11 +174,15 @@ function getLevelColor(level: number): string {
   transition: all $transition-fast;
 
   &--upgrade {
-    background: linear-gradient(135deg, #f59e0b, #f97316);
+    background: $pro-gradient;
     color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-xs;
 
     &:hover {
-      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+      box-shadow: 0 2px 8px rgba($pro-color-start, 0.3);
     }
   }
 

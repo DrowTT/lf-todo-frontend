@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import TitleBar from './layout/TitleBar.vue'
 import CategoryList from './components/CategoryList.vue'
 import TodoList from './components/TodoList.vue'
@@ -28,14 +28,31 @@ const showKickedDialog = ref(false)
 // Pro 升级弹窗
 const showProUpgrade = ref(false)
 
+const handleUpgradeRequired = () => {
+  showProUpgrade.value = true
+}
+
+const handleProStatusChanged = () => {
+  void authStore.refreshProStatusIfStale(0)
+}
+
+const handleForceLogout = () => {
+  showKickedDialog.value = true
+}
+
 // 启动时检查认证状态
 onMounted(async () => {
   await authStore.checkAuth()
 
-  // 监听强制登出事件（Token 刷新失败时触发）
-  window.addEventListener('auth:force-logout', () => {
-    showKickedDialog.value = true
-  })
+  window.addEventListener('pro:upgrade-required', handleUpgradeRequired)
+  window.addEventListener('pro:status-changed', handleProStatusChanged)
+  window.addEventListener('auth:force-logout', handleForceLogout)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('pro:upgrade-required', handleUpgradeRequired)
+  window.removeEventListener('pro:status-changed', handleProStatusChanged)
+  window.removeEventListener('auth:force-logout', handleForceLogout)
 })
 
 function handleKickedConfirm(): void {
