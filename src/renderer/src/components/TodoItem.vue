@@ -144,8 +144,8 @@ const onCardMouseLeave = () => clearHover()
   border: 1px solid $border-color;
   border-radius: 14px;
   box-shadow:
-    0 1px 3px rgba(15, 23, 42, 0.06),
-    0 6px 16px rgba(15, 23, 42, 0.04);
+    0 1px 3px rgb(var(--text-primary-rgb) / 0.06),
+    0 6px 16px rgb(var(--text-primary-rgb) / 0.04);
   transition:
     box-shadow 0.25s ease,
     border-color 0.25s ease,
@@ -160,19 +160,19 @@ const onCardMouseLeave = () => clearHover()
     border-color: $border-light;
     transform: translateY(-1px);
     box-shadow:
-      0 2px 6px rgba(15, 23, 42, 0.08),
-      0 8px 20px rgba(15, 23, 42, 0.06);
+      0 2px 6px rgb(var(--text-primary-rgb) / 0.08),
+      0 8px 20px rgb(var(--text-primary-rgb) / 0.06);
   }
 
   // 展开态 — 蓝色光晕
   &--open {
-    border-color: rgba($accent-color, 0.3);
+    border-color: rgb(var(--accent-color-rgb) / 0.3);
     box-shadow:
-      0 2px 8px rgba($accent-color, 0.08),
-      0 0 0 1px rgba($accent-color, 0.06);
+      0 2px 8px rgb(var(--accent-color-rgb) / 0.08),
+      0 0 0 1px rgb(var(--accent-color-rgb) / 0.06);
 
     &:hover {
-      border-color: rgba($accent-color, 0.35);
+      border-color: rgb(var(--accent-color-rgb) / 0.35);
       transform: none;
     }
   }
@@ -180,7 +180,7 @@ const onCardMouseLeave = () => clearHover()
   // 已完成态 — 柔化视觉
   &--done {
     opacity: 0.65;
-    background: rgba($bg-elevated, 0.7);
+    background: rgb(var(--bg-elevated-rgb) / 0.7);
 
     &:hover {
       opacity: 0.9;
@@ -224,9 +224,9 @@ const onCardMouseLeave = () => clearHover()
   opacity: 0.92;
   transform: rotate(1.5deg) scale(1.02);
   box-shadow:
-    0 8px 28px rgba(37, 99, 235, 0.12),
-    0 0 0 2px rgba($accent-color, 0.25);
-  border-color: rgba($accent-color, 0.4);
+    0 8px 28px rgb(var(--accent-color-rgb) / 0.12),
+    0 0 0 2px rgb(var(--accent-color-rgb) / 0.25);
+  border-color: rgb(var(--accent-color-rgb) / 0.4);
   z-index: 10;
   transition: none;
 
@@ -241,9 +241,9 @@ const onCardMouseLeave = () => clearHover()
 .card--ghost {
   opacity: 0.35;
   transform: scale(0.98);
-  border: 2px dashed rgba($accent-color, 0.35);
+  border: 2px dashed rgb(var(--accent-color-rgb) / 0.35);
   box-shadow: none;
-  background: rgba($accent-color, 0.03);
+  background: rgb(var(--accent-color-rgb) / 0.03);
 }
 
 // ─── 主行 ──────────────────────────────────
@@ -280,7 +280,7 @@ const onCardMouseLeave = () => clearHover()
   &:hover {
     border-color: $accent-color;
     background: $accent-soft;
-    box-shadow: 0 0 0 4px rgba($accent-color, 0.08);
+    box-shadow: 0 0 0 4px rgb(var(--accent-color-rgb) / 0.08);
   }
 
   // 勾选态 — 带微弹跳
@@ -292,7 +292,7 @@ const onCardMouseLeave = () => clearHover()
     &:hover {
       background: $accent-hover;
       border-color: $accent-hover;
-      box-shadow: 0 0 0 4px rgba($accent-color, 0.12);
+      box-shadow: 0 0 0 4px rgb(var(--accent-color-rgb) / 0.12);
     }
   }
 }
@@ -328,7 +328,7 @@ const onCardMouseLeave = () => clearHover()
   .card--done & {
     color: $text-muted;
     text-decoration: line-through;
-    text-decoration-color: rgba($text-muted, 0.4);
+    text-decoration-color: rgb(var(--text-muted-rgb) / 0.4);
     font-weight: 400;
   }
 }
@@ -363,7 +363,7 @@ const onCardMouseLeave = () => clearHover()
   display: block;
   border: none;
   border-radius: 0;
-  box-shadow: 0 1.5px 0 0 rgba($accent-color, 0.4);
+  box-shadow: 0 1.5px 0 0 rgb(var(--accent-color-rgb) / 0.4);
   outline: none;
   box-sizing: border-box;
   resize: none;
@@ -414,7 +414,7 @@ const onCardMouseLeave = () => clearHover()
 .card__del {
   &:hover {
     color: $danger-color;
-    background: rgba($danger-color, 0.08);
+    background: rgb(var(--danger-color-rgb) / 0.08);
   }
 }
 
@@ -424,7 +424,7 @@ const onCardMouseLeave = () => clearHover()
   padding: 8px 4px 4px 14px;
   background: $bg-deep;
   border-radius: 10px;
-  border-left: 3px solid rgba($accent-color, 0.25);
+  border-left: 3px solid rgb(var(--accent-color-rgb) / 0.25);
   overflow: hidden;
 }
 

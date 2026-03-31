@@ -366,3 +366,53 @@ export function exportAllData(): { categories: Category[]; tasks: Task[] } {
     tasks: allTasks.map(mapTask)
   }
 }
+
+/**
+ * 导入数据（用于数据导入功能）
+ * 采用覆盖导入模式：先清空现有数据，再导入新数据
+ */
+export function importAllData(data: { categories: Category[]; tasks: Task[] }): number {
+  const db = getDb()
+  
+  let importedCount = 0
+  
+  // 事务中执行导入
+  db.transaction(() => {
+    // 临时禁用外键约束，避免导入时外键检查失败
+    db.pragma('foreign_keys = OFF')
+    
+    // 删除所有现有数据
+    db.exec('DELETE FROM tasks')
+    db.exec('DELETE FROM categories')
+    
+    // 导入分类
+    for (const category of data.categories) {
+      db.prepare(
+        'INSERT INTO categories (id, name, order_index, created_at) VALUES (?, ?, ?, ?)'
+      ).run(category.id, category.name, category.order_index, category.created_at)
+      importedCount++
+    }
+    
+    // 导入任务
+    for (const task of data.tasks) {
+      db.prepare(
+        `INSERT INTO tasks (id, content, is_completed, category_id, order_index, created_at, parent_id) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        task.id,
+        task.content,
+        task.is_completed ? 1 : 0,
+        task.category_id,
+        task.order_index,
+        task.created_at,
+        task.parent_id
+      )
+      importedCount++
+    }
+    
+    // 恢复外键约束
+    db.pragma('foreign_keys = ON')
+  })()
+  
+  return importedCount
+}

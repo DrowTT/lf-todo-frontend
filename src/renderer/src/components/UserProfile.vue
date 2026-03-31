@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAuthStore } from '../store/auth'
 import { Sparkles } from 'lucide-vue-next'
+import LevelBadge from './LevelBadge.vue'
 
 const authStore = useAuthStore()
 
@@ -8,27 +9,6 @@ const emit = defineEmits<{
   upgrade: []
   logout: []
 }>()
-
-/**
- * 根据等级返回对应的名称和颜色
- */
-function getLevelName(level: number): string {
-  if (level <= 5) return '初学者'
-  if (level <= 10) return '践行者'
-  if (level <= 20) return '专注者'
-  if (level <= 35) return '掌控者'
-  if (level <= 50) return '征服者'
-  return '传奇'
-}
-
-function getLevelColor(level: number): string {
-  if (level <= 5) return '#B0B0B0'
-  if (level <= 10) return '#4CAF50'
-  if (level <= 20) return '#2196F3'
-  if (level <= 35) return '#9C27B0'
-  if (level <= 50) return '#FF9800'
-  return '#FF4444'
-}
 </script>
 
 <template>
@@ -43,15 +23,10 @@ function getLevelColor(level: number): string {
           <span class="profile-nickname">{{ authStore.nickname }}</span>
           <!-- Pro 标识 -->
           <span v-if="authStore.isPro" class="pro-tag">PRO</span>
-          <!-- 等级标签 -->
-          <span
+          <LevelBadge
             v-if="authStore.user?.level"
-            class="level-tag"
-            :style="{ color: getLevelColor(authStore.user.level.currentLevel), borderColor: getLevelColor(authStore.user.level.currentLevel) }"
-          >
-            Lv.{{ authStore.user.level.currentLevel }}
-            {{ getLevelName(authStore.user.level.currentLevel) }}
-          </span>
+            :level="authStore.user.level.currentLevel"
+          />
         </div>
         <span class="profile-email">{{ authStore.email }}</span>
       </div>
@@ -92,7 +67,7 @@ function getLevelColor(level: number): string {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, $accent-color, #6366f1);
+  background: var(--accent-gradient);
   color: white;
   display: flex;
   align-items: center;
@@ -139,16 +114,6 @@ function getLevelColor(level: number): string {
   line-height: 18px;
 }
 
-.level-tag {
-  display: inline-block;
-  padding: 0 6px;
-  font-size: 10px;
-  font-weight: 600;
-  border: 1px solid;
-  border-radius: 3px;
-  line-height: 16px;
-}
-
 .profile-email {
   font-size: $font-sm;
   color: $text-muted;
@@ -182,19 +147,19 @@ function getLevelColor(level: number): string {
     gap: $spacing-xs;
 
     &:hover {
-      box-shadow: 0 2px 8px rgba($pro-color-start, 0.3);
+      box-shadow: 0 2px 8px rgb(var(--warning-color-rgb) / 0.3);
     }
   }
 
   &--logout {
-    background: rgba(0, 0, 0, 0.04);
+    background: rgb(var(--text-primary-rgb) / 0.04);
     color: $text-secondary;
     border: 1px solid $border-color;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.08);
+      background: rgb(var(--text-primary-rgb) / 0.08);
       color: $danger-color;
-      border-color: rgba($danger-color, 0.3);
+      border-color: rgb(var(--danger-color-rgb) / 0.3);
     }
   }
 }

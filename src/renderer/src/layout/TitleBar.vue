@@ -122,7 +122,7 @@ onMounted(() => {
     border-radius: 50%;
     background: $accent-color;
     flex-shrink: 0;
-    box-shadow: 0 0 6px rgba($accent-color, 0.3);
+    box-shadow: 0 0 6px rgb(var(--accent-color-rgb) / 0.3);
   }
 
   &__controls {
@@ -145,7 +145,7 @@ onMounted(() => {
     transition: all $transition-fast;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.06);
+      background: var(--titlebar-hover);
       color: $text-primary;
     }
 

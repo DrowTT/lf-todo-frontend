@@ -1,5 +1,6 @@
 // 认证相关 API 封装
 import request from './request'
+import type { LevelTier } from '../constants/levels'
 
 // ─── 请求/响应类型定义 ───
 
@@ -24,6 +25,9 @@ interface UserProfile {
   level: {
     totalXp: number
     currentLevel: number
+    levelName: string
+    levelColor: string
+    levelMeta: LevelTier
   }
 }
 

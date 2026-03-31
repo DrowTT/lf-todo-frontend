@@ -7,6 +7,7 @@ import {
   MonitorOff,
   Trash2,
   Download,
+  Upload,
   Info,
   Keyboard,
   RefreshCw,
@@ -40,6 +41,7 @@ const closeToTray = ref(true)
 const autoCleanupEnabled = ref(false)
 const autoCleanupDays = ref(7)
 const isExporting = ref(false)
+const isImporting = ref(false)
 
 // 应用信息
 const appInfo = ref({
@@ -283,6 +285,21 @@ const handleExportData = async () => {
     await window.api.settings.exportData()
   } finally {
     isExporting.value = false
+  }
+}
+
+const handleImportData = async () => {
+  if (!isElectron || isImporting.value) return
+  isImporting.value = true
+  try {
+    const result = await window.api.settings.importData()
+    if (result.success) {
+      window.dispatchEvent(new CustomEvent('data:imported'))
+    } else if (!result.cancelled) {
+      alert(result.error || '导入失败')
+    }
+  } finally {
+    isImporting.value = false
   }
 }
 
@@ -569,6 +586,23 @@ onUnmounted(() => {
               {{ isExporting ? '导出中...' : '导出' }}
             </button>
           </div>
+
+          <div class="settings-item">
+            <div class="settings-item__info">
+              <label class="settings-item__label">
+                <Upload :size="14" class="settings-item__inline-icon" />
+                导入数据
+              </label>
+              <span class="settings-item__desc">从 JSON 文件导入待办数据（将覆盖现有数据）</span>
+            </div>
+            <button
+              class="settings-item__action-btn"
+              :disabled="isImporting"
+              @click="handleImportData"
+            >
+              {{ isImporting ? '导入中...' : '导入' }}
+            </button>
+          </div>
         </div>
 
         <!-- 关于 -->
@@ -704,7 +738,7 @@ onUnmounted(() => {
   height: 100%;
   background: $bg-primary;
   border-left: 1px solid $border-color;
-  box-shadow: -8px 0 32px rgb($text-primary-rgb / 0.12);
+  box-shadow: -8px 0 32px var(--shadow-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -828,12 +862,12 @@ onUnmounted(() => {
   }
 
   &:hover {
-    background: rgb($text-primary-rgb / 0.015);
+    background: rgb(var(--text-primary-rgb) / 0.015);
   }
 
   &--nested {
     padding-left: $spacing-xl;
-    background: rgb($accent-color-rgb / 0.02);
+    background: rgb(var(--accent-color-rgb) / 0.02);
   }
 
   &__info {
@@ -869,7 +903,7 @@ onUnmounted(() => {
     padding: 4px 14px;
     background: $accent-soft;
     color: $accent-color;
-    border: 1px solid rgb($accent-color-rgb / 0.15);
+    border: 1px solid rgb(var(--accent-color-rgb) / 0.15);
     border-radius: $radius-md;
     font-size: $font-xs;
     font-weight: 500;
@@ -879,7 +913,7 @@ onUnmounted(() => {
     flex-shrink: 0;
 
     &:hover:not(:disabled) {
-      background: rgb($accent-color-rgb / 0.15);
+      background: rgb(var(--accent-color-rgb) / 0.15);
     }
 
     &:disabled {
@@ -903,12 +937,12 @@ onUnmounted(() => {
   }
 
   &:hover {
-    background: rgb($text-primary-rgb / 0.012);
+    background: rgb(var(--text-primary-rgb) / 0.012);
   }
 
   // 录键激活态
   &--active {
-    background: rgb($accent-color-rgb / 0.03);
+    background: rgb(var(--accent-color-rgb) / 0.03);
   }
 
   // 固定快捷键行
@@ -931,7 +965,7 @@ onUnmounted(() => {
     display: inline-block;
     padding: 0 5px;
     margin-left: 4px;
-    background: linear-gradient(135deg, #f59e0b, #f97316);
+    background: $pro-gradient;
     color: white;
     font-size: 9px;
     font-weight: 700;
@@ -982,7 +1016,7 @@ onUnmounted(() => {
   min-width: 40px;
   height: 26px;
   padding: 0 10px;
-  background: rgb($text-primary-rgb / 0.04);
+  background: rgb(var(--text-primary-rgb) / 0.04);
   border: none;
   border-radius: 6px;
   font-size: 11px;
@@ -995,12 +1029,12 @@ onUnmounted(() => {
   user-select: none;
 
   &:hover {
-    background: rgb($accent-color-rgb / 0.1);
+    background: rgb(var(--accent-color-rgb) / 0.1);
     color: $accent-color;
   }
 
   &:active {
-    background: rgb($accent-color-rgb / 0.16);
+    background: rgb(var(--accent-color-rgb) / 0.16);
   }
 
   // 录键状态：蓝色发光边框 + 等待动画
@@ -1011,7 +1045,7 @@ onUnmounted(() => {
     border-bottom-width: 1px;
     color: $accent-color;
     cursor: default;
-    box-shadow: 0 0 0 3px rgb($accent-color-rgb / 0.12);
+    box-shadow: 0 0 0 3px rgb(var(--accent-color-rgb) / 0.12);
     animation: key-glow 1.5s ease-in-out infinite;
 
     &:hover {
@@ -1038,10 +1072,10 @@ onUnmounted(() => {
 @keyframes key-glow {
   0%,
   100% {
-    box-shadow: 0 0 0 3px rgb($accent-color-rgb / 0.12);
+    box-shadow: 0 0 0 3px rgb(var(--accent-color-rgb) / 0.12);
   }
   50% {
-    box-shadow: 0 0 0 4px rgb($accent-color-rgb / 0.2);
+    box-shadow: 0 0 0 4px rgb(var(--accent-color-rgb) / 0.2);
   }
 }
 
@@ -1066,7 +1100,7 @@ onUnmounted(() => {
 
     &:hover {
       color: $danger-color;
-      background: rgb($danger-color-rgb / 0.06);
+      background: rgb(var(--danger-color-rgb) / 0.06);
     }
   }
 }
@@ -1081,7 +1115,7 @@ onUnmounted(() => {
   letter-spacing: 0.5px;
   text-transform: uppercase;
   color: $text-muted;
-  background: rgb($text-primary-rgb / 0.03);
+  background: rgb(var(--text-primary-rgb) / 0.03);
   border-radius: 3px;
 }
 
@@ -1101,7 +1135,7 @@ onUnmounted(() => {
   &:hover {
     color: $text-secondary;
     border-color: $border-light;
-    background: rgba(0, 0, 0, 0.02);
+    background: rgb(var(--text-primary-rgb) / 0.02);
   }
 }
 
@@ -1137,7 +1171,7 @@ onUnmounted(() => {
       bottom: 2px;
       background: white;
       border-radius: 50%;
-      box-shadow: 0 1px 3px rgb($text-primary-rgb / 0.15);
+      box-shadow: 0 1px 3px rgb(var(--text-primary-rgb) / 0.15);
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
   }
@@ -1202,7 +1236,7 @@ onUnmounted(() => {
     height: 8px;
     border-radius: 50%;
     background: $accent-color;
-    box-shadow: 0 0 6px rgb($accent-color-rgb / 0.3);
+    box-shadow: 0 0 6px rgb(var(--accent-color-rgb) / 0.3);
     flex-shrink: 0;
   }
 
@@ -1249,8 +1283,8 @@ onUnmounted(() => {
 .update-section {
   margin-bottom: $spacing-md;
   padding: $spacing-sm $spacing-md;
-  background: rgb($accent-color-rgb / 0.03);
-  border: 1px solid rgb($accent-color-rgb / 0.08);
+  background: rgb(var(--accent-color-rgb) / 0.03);
+  border: 1px solid rgb(var(--accent-color-rgb) / 0.08);
   border-radius: $radius-md;
 
   &__row {
@@ -1274,7 +1308,7 @@ onUnmounted(() => {
     color: $text-secondary;
 
     &--success {
-      color: #22c55e;
+      color: var(--success-color);
     }
 
     &--checking {
@@ -1301,7 +1335,7 @@ onUnmounted(() => {
     align-items: center;
     gap: 4px;
     padding: 4px 12px;
-    background: rgb($text-primary-rgb / 0.04);
+    background: rgb(var(--text-primary-rgb) / 0.04);
     border: 1px solid $border-subtle;
     border-radius: $radius-sm;
     font-size: 11px;
@@ -1313,7 +1347,7 @@ onUnmounted(() => {
     flex-shrink: 0;
 
     &:hover {
-      background: rgb($text-primary-rgb / 0.06);
+      background: rgb(var(--text-primary-rgb) / 0.06);
       border-color: $border-light;
     }
 
@@ -1331,7 +1365,7 @@ onUnmounted(() => {
   &__progress {
     width: 100%;
     height: 4px;
-    background: rgb($text-primary-rgb / 0.06);
+    background: rgb(var(--text-primary-rgb) / 0.06);
     border-radius: 2px;
     overflow: hidden;
   }
@@ -1359,7 +1393,7 @@ onUnmounted(() => {
   padding: 12px;
   border: 1px solid $border-color;
   border-radius: $radius-lg;
-  background: $surface-soft;
+  background: var(--surface-soft);
   box-shadow: $shadow-sm;
   cursor: pointer;
   text-align: left;
@@ -1386,11 +1420,11 @@ onUnmounted(() => {
   }
 
   &:hover {
-    border-color: rgb($accent-color-rgb / 0.35);
+    border-color: rgb(var(--accent-color-rgb) / 0.35);
     box-shadow:
-      0 0 0 1px rgb($accent-color-rgb / 0.15),
-      0 8px 24px -8px rgb(0 0 0 / 0.24);
-    background: $surface-soft-strong;
+      0 0 0 1px rgb(var(--accent-color-rgb) / 0.15),
+      0 8px 24px -8px rgb(var(--text-primary-rgb) / 0.24);
+    background: var(--surface-soft-strong);
 
     &::before {
       animation: shimmer 0.6s ease forwards;
@@ -1400,14 +1434,14 @@ onUnmounted(() => {
   &:focus-visible {
     outline: none;
     border-color: $accent-color;
-    box-shadow: 0 0 0 3px rgb($accent-color-rgb / 0.14);
+    box-shadow: 0 0 0 3px rgb(var(--accent-color-rgb) / 0.14);
   }
 
   &--active {
-    border-color: rgb($accent-color-rgb / 0.45);
+    border-color: rgb(var(--accent-color-rgb) / 0.45);
     box-shadow:
-      0 0 0 1px rgb($accent-color-rgb / 0.22),
-      $theme-card-shadow;
+      0 0 0 1px rgb(var(--accent-color-rgb) / 0.22),
+      var(--theme-card-shadow);
   }
 
   &__preview {
@@ -1416,7 +1450,7 @@ onUnmounted(() => {
     overflow: hidden;
     border-radius: 14px;
     background: var(--theme-surface);
-    border: 1px solid rgb($border-color-rgb / 0.5);
+    border: 1px solid rgb(var(--border-color-rgb) / 0.5);
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
   }
 

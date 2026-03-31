@@ -68,7 +68,7 @@ watch(
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(15, 23, 42, 0.35);
+  background-color: rgb(var(--text-primary-rgb) / 0.35);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 9998;
@@ -91,10 +91,10 @@ watch(
 .dialog-content {
   min-width: 320px;
   max-width: 420px;
-  background: rgba(255, 255, 255, 0.65);
+  background: rgb(var(--bg-elevated-rgb) / 0.65);
   backdrop-filter: blur(24px) saturate(1.6);
   -webkit-backdrop-filter: blur(24px) saturate(1.6);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgb(var(--bg-elevated-rgb) / 0.5);
   border-radius: $radius-xl;
   box-shadow: $shadow-lg;
   padding: $spacing-2xl;
@@ -125,12 +125,12 @@ watch(
   border: none;
 
   &--cancel {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgb(var(--text-primary-rgb) / 0.05);
     color: $text-secondary;
     border: 1px solid $border-color;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.08);
+      background: rgb(var(--text-primary-rgb) / 0.08);
       color: $text-primary;
     }
   }

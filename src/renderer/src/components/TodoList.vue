@@ -137,7 +137,7 @@ const onDragEnd = () => {
   align-items: center;
   justify-content: space-between;
   padding: $spacing-lg $spacing-xl;
-  background: linear-gradient(135deg, rgba($bg-sidebar, 0.35) 0%, rgba($bg-sidebar, 0.15) 100%);
+  background: linear-gradient(135deg, rgb(var(--bg-sidebar-rgb) / 0.35) 0%, rgb(var(--bg-sidebar-rgb) / 0.15) 100%);
   border-bottom: 1px solid $border-subtle;
 }
 
@@ -187,7 +187,7 @@ const onDragEnd = () => {
   &:hover:not(:disabled) {
     border-color: $danger-color;
     color: $danger-color;
-    background: rgba($danger-color, 0.06);
+    background: rgb(var(--danger-color-rgb) / 0.06);
   }
 
   &:disabled {
@@ -232,8 +232,8 @@ const onDragEnd = () => {
   align-items: center;
   justify-content: center;
   border-radius: 20px;
-  background: linear-gradient(135deg, rgba($accent-color, 0.08) 0%, rgba($accent-color, 0.04) 100%);
-  border: 1px solid rgba($accent-color, 0.1);
+  background: linear-gradient(135deg, rgb(var(--accent-color-rgb) / 0.08) 0%, rgb(var(--accent-color-rgb) / 0.04) 100%);
+  border: 1px solid rgb(var(--accent-color-rgb) / 0.1);
   color: $accent-color;
   margin-bottom: $spacing-sm;
   transition: transform $transition-slow;
@@ -242,10 +242,10 @@ const onDragEnd = () => {
   &--spark {
     background: linear-gradient(
       135deg,
-      rgba($warning-color, 0.1) 0%,
-      rgba($warning-color, 0.04) 100%
+      rgb(var(--warning-color-rgb) / 0.1) 0%,
+      rgb(var(--warning-color-rgb) / 0.04) 100%
     );
-    border-color: rgba($warning-color, 0.12);
+    border-color: rgb(var(--warning-color-rgb) / 0.12);
     color: $warning-color;
   }
 }

@@ -39,19 +39,19 @@ const { message, hide } = useToast()
   // 通用毛玻璃底层
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgb(var(--text-primary-rgb) / 0.08);
   box-shadow: $shadow-lg;
 
   &--error {
-    background: rgba(239, 68, 68, 0.85);
+    background: rgb(var(--danger-color-rgb) / 0.85);
     color: white;
   }
   &--success {
-    background: rgba(34, 197, 94, 0.85);
+    background: rgb(var(--success-color-rgb) / 0.85);
     color: white;
   }
   &--info {
-    background: rgba(59, 130, 246, 0.85);
+    background: rgb(var(--accent-color-rgb) / 0.85);
     color: white;
   }
 }

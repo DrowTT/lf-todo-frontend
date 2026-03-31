@@ -92,7 +92,7 @@ function registerSettingsHandlers(): void {
 
     const result = await dialog.showSaveDialog(win, {
       title: '导出待办数据',
-      defaultPath: `极简待办-数据导出-${new Date().toISOString().slice(0, 10)}.json`,
+      defaultPath: `极简待办 - 数据导出-${new Date().toISOString().slice(0, 10)}.json`,
       filters: [{ name: 'JSON 文件', extensions: ['json'] }]
     })
 
@@ -101,6 +101,39 @@ function registerSettingsHandlers(): void {
     const data = db.exportAllData()
     writeFileSync(result.filePath, JSON.stringify(data, null, 2), 'utf-8')
     return true
+  })
+
+  ipcMain.handle('settings:import-data', async () => {
+    const win = mainWindow
+    if (!win) return { success: false, error: '窗口不存在' }
+
+    const result = await dialog.showOpenDialog(win, {
+      title: '导入待办数据',
+      filters: [{ name: 'JSON 文件', extensions: ['json'] }],
+      properties: ['openFile']
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, cancelled: true }
+    }
+
+    const filePath = result.filePaths[0]
+
+    try {
+      const fs = await import('fs')
+      const fileContent = fs.readFileSync(filePath, 'utf-8')
+      const data = JSON.parse(fileContent)
+
+      if (!data.categories || !data.tasks) {
+        return { success: false, error: '文件格式不正确，缺少必需的数据字段' }
+      }
+
+      const importedCount = db.importAllData(data)
+      return { success: true, importedCount }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '未知错误'
+      return { success: false, error: `导入失败：${errorMessage}` }
+    }
   })
 
   ipcMain.handle('settings:get-app-info', () => {

@@ -1,11 +1,13 @@
 // 等级系统相关 API 封装
 import request from './request'
+import type { LevelTier } from '../constants/levels'
 
 // ─── 响应类型定义 ───
 
 interface DailyInfo {
   checkinDone: boolean
   taskXpCount: number
+  taskXpLimit: number
   totalXpToday: number
 }
 
@@ -14,10 +16,12 @@ interface LevelInfo {
   currentLevel: number
   levelName: string
   levelColor: string
+  levelMeta: LevelTier
   currentLevelXp: number
   nextLevelXp: number
   xpProgress: number
   xpNeeded: number
+  isMaxLevel: boolean
   daily: DailyInfo
 }
 
@@ -27,6 +31,8 @@ interface XpGainResult {
   totalXp: number
   currentLevel: number
   levelName: string
+  levelColor: string
+  levelMeta: LevelTier
 }
 
 // ─── API 函数 ───

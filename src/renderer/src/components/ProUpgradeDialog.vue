@@ -95,7 +95,7 @@ watch(
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(15, 23, 42, 0.35);
+  background-color: rgb(var(--text-primary-rgb) / 0.35);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 9998;
@@ -118,7 +118,7 @@ watch(
   background: $bg-elevated;
   border: 1px solid $border-color;
   border-radius: $radius-xl;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 20px 60px rgb(var(--text-primary-rgb) / 0.18), 0 0 1px rgb(var(--text-primary-rgb) / 0.08);
   padding: $spacing-2xl;
   outline: none;
   position: relative;
@@ -134,7 +134,7 @@ watch(
     height: 100%;
     background: radial-gradient(
       ellipse at center,
-      rgba($pro-color-start, 0.06) 0%,
+      rgb(var(--warning-color-rgb) / 0.06) 0%,
       transparent 70%
     );
     pointer-events: none;
@@ -205,7 +205,7 @@ watch(
   padding: $spacing-lg $spacing-md;
   border: 2px solid $border-color;
   border-radius: $radius-lg;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgb(var(--bg-elevated-rgb) / 0.5);
   transition: all $transition-normal;
   position: relative;
   margin-bottom: $spacing-xl;
@@ -271,11 +271,11 @@ watch(
   transition: all $transition-normal;
 
   &--primary {
-    background: linear-gradient(135deg, $accent-color, #6366f1);
+    background: var(--accent-gradient);
     color: white;
 
     &:hover {
-      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3);
+      box-shadow: 0 4px 16px rgb(var(--accent-color-rgb) / 0.3);
       transform: translateY(-1px);
     }
   }
@@ -288,7 +288,7 @@ watch(
     &:hover {
       color: $text-secondary;
       border-color: $border-light;
-      background: rgba(0, 0, 0, 0.02);
+      background: rgb(var(--text-primary-rgb) / 0.02);
     }
   }
 }

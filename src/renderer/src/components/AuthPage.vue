@@ -285,7 +285,12 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   height: 100vh;
-  background: linear-gradient(135deg, #e8edf5 0%, #f0f4fa 50%, #e0e8f4 100%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--bg-sidebar-rgb) / 1) 0%,
+    rgb(var(--bg-deep-rgb) / 1) 50%,
+    rgb(var(--bg-sidebar-rgb) / 0.75) 100%
+  );
   position: relative;
 
   // 微妙的几何网格纹理增加层次感
@@ -295,7 +300,7 @@ onBeforeUnmount(() => {
     inset: 0;
     background-image: radial-gradient(
       circle at 1px 1px,
-      rgba(37, 99, 235, 0.03) 1px,
+      rgb(var(--accent-color-rgb) / 0.03) 1px,
       transparent 0
     );
     background-size: 32px 32px;
@@ -317,8 +322,8 @@ onBeforeUnmount(() => {
   padding: $spacing-2xl;
   background: $bg-elevated;
   border-radius: $radius-lg;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 8px 32px rgb(var(--text-primary-rgb) / 0.08), 0 0 1px rgb(var(--text-primary-rgb) / 0.06);
+  border: 1px solid rgb(var(--bg-elevated-rgb) / 0.7);
   position: relative;
   z-index: 1;
   animation: card-enter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -344,13 +349,13 @@ onBeforeUnmount(() => {
   width: 52px;
   height: 52px;
   margin: 0 auto $spacing-md;
-  background: linear-gradient(135deg, $accent-color, #6366f1);
+  background: var(--accent-gradient);
   color: white;
   border-radius: $radius-md;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 12px rgb(var(--accent-color-rgb) / 0.25);
   transition: transform $transition-normal;
 
   &:hover {
@@ -378,15 +383,15 @@ onBeforeUnmount(() => {
   margin-bottom: $spacing-md;
 
   &.auth-error {
-    background: rgba($danger-color, 0.08);
+    background: rgb(var(--danger-color-rgb) / 0.08);
     color: $danger-color;
-    border: 1px solid rgba($danger-color, 0.2);
+    border: 1px solid rgb(var(--danger-color-rgb) / 0.2);
   }
 
   &.auth-success {
-    background: rgba($success-color, 0.08);
+    background: rgb(var(--success-color-rgb) / 0.08);
     color: $success-color;
-    border: 1px solid rgba($success-color, 0.2);
+    border: 1px solid rgb(var(--success-color-rgb) / 0.2);
     white-space: pre-wrap;
     word-break: break-all;
   }
@@ -425,7 +430,7 @@ onBeforeUnmount(() => {
     &:focus {
       border-color: $accent-color;
       box-shadow: $shadow-glow;
-      background: rgba(37, 99, 235, 0.02);
+      background: rgb(var(--accent-color-rgb) / 0.02);
     }
 
     &::placeholder {
@@ -500,7 +505,7 @@ onBeforeUnmount(() => {
 .loading-spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid rgb(var(--bg-elevated-rgb) / 0.3);
   border-top-color: white;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;

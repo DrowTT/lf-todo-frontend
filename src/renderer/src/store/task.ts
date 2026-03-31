@@ -92,7 +92,6 @@ export const useTaskStore = defineStore('task', () => {
       taskComplete(String(id))
         .then((res) => {
           if (res.data.xpGain <= 0) {
-            toast.show(res.data.message || '今日任务经验已达上限')
             return
           }
 

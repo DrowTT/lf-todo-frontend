@@ -49,6 +49,7 @@ const api = {
     setAutoCleanup: (config: { enabled: boolean; days: number }) =>
       ipcRenderer.invoke('settings:set-auto-cleanup', config),
     exportData: () => ipcRenderer.invoke('settings:export-data'),
+    importData: () => ipcRenderer.invoke('settings:import-data'),
     getAppInfo: () => ipcRenderer.invoke('settings:get-app-info')
   },
   updater: {

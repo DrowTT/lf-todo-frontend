@@ -67,7 +67,7 @@ const handleSubmit = async (): Promise<void> => {
       box-shadow:
         0 0 0 3px $accent-soft,
         $shadow-glow;
-      background: rgba($bg-input, 0.8);
+      background: rgb(var(--bg-input-rgb) / 0.8);
     }
   }
 

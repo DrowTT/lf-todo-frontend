@@ -228,7 +228,7 @@ const cancelRename = () => {
     position: sticky;
     top: 0;
     z-index: 1;
-    background: linear-gradient(180deg, rgba($bg-sidebar, 0.98) 0%, rgba($bg-sidebar, 0.92) 100%);
+    background: linear-gradient(180deg, rgb(var(--bg-sidebar-rgb) / 0.98) 0%, rgb(var(--bg-sidebar-rgb) / 0.92) 100%);
     backdrop-filter: blur(10px);
   }
 
@@ -572,14 +572,14 @@ const cancelRename = () => {
     transition: background-color $transition-fast;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.04);
+        background: rgb(var(--text-primary-rgb) / 0.04);
     }
 
     &--danger {
       color: $danger-color;
 
       &:hover {
-        background: rgba($danger-color, 0.1);
+        background: rgb(var(--danger-color-rgb) / 0.1);
       }
     }
   }

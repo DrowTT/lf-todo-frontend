@@ -282,7 +282,7 @@ body {
 
 /* 文本选区颜色 */
 ::selection {
-  background: rgb($accent-color-rgb / 0.15);
+  background: rgb(var(--accent-color-rgb) / 0.15);
   color: $text-primary;
 }
 
@@ -303,13 +303,13 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb($text-muted-rgb / 0.35);
+  background: rgb(var(--text-muted-rgb) / 0.35);
   border-radius: 10px;
   transition: background $transition-normal;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb($text-muted-rgb / 0.55);
+  background: rgb(var(--text-muted-rgb) / 0.55);
 }
 
 /* 全局链接重置 */

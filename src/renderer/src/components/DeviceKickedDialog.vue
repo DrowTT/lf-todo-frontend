@@ -53,7 +53,7 @@ async function handleConfirm(): Promise<void> {
 .kicked-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--panel-overlay);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 9998;
@@ -73,7 +73,7 @@ async function handleConfirm(): Promise<void> {
   padding: $spacing-2xl;
   background: $bg-elevated;
   border-radius: $radius-lg;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 16px 48px rgb(var(--text-primary-rgb) / 0.15);
   text-align: center;
 }
 
@@ -84,7 +84,7 @@ async function handleConfirm(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba($warning-color, 0.1);
+  background: rgb(var(--warning-color-rgb) / 0.1);
   color: $warning-color;
   border-radius: 50%;
 }

@@ -79,6 +79,7 @@ interface API {
     setCloseToTray: (enabled: boolean) => Promise<boolean>
     setAutoCleanup: (config: AutoCleanupConfig) => Promise<AutoCleanupConfig>
     exportData: () => Promise<boolean>
+    importData: () => Promise<{ success: boolean; cancelled?: boolean; importedCount?: number; error?: string }>
     getAppInfo: () => Promise<AppInfo>
   }
   updater: {

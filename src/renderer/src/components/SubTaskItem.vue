@@ -99,7 +99,7 @@ const onSubMouseLeave = () => setHoverTask(props.parentId)
     .sub__text {
       color: $text-muted;
       text-decoration: line-through;
-      text-decoration-color: rgba($text-muted, 0.3);
+      text-decoration-color: rgb(var(--text-muted-rgb) / 0.3);
     }
 
     .sub__check {
@@ -173,7 +173,7 @@ const onSubMouseLeave = () => setHoverTask(props.parentId)
   display: block;
   border: none;
   border-radius: 0;
-  box-shadow: 0 1.5px 0 0 rgba($accent-color, 0.4);
+  box-shadow: 0 1.5px 0 0 rgb(var(--accent-color-rgb) / 0.4);
   outline: none;
   box-sizing: border-box;
   resize: none;
@@ -195,7 +195,7 @@ const onSubMouseLeave = () => setHoverTask(props.parentId)
 
   &:hover {
     color: $danger-color;
-    background: rgba($danger-color, 0.08);
+    background: rgb(var(--danger-color-rgb) / 0.08);
   }
 
   // 编辑态隐藏但保留占位，防止行高坍缩
