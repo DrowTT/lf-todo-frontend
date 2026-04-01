@@ -1,46 +1,105 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { db, Task } from '../db'
 import { useToast } from '../composables/useToast'
+import {
+  buildPendingOperationKey,
+  hasPendingOperation,
+  pendingOperations,
+  runAsyncAction
+} from '../services/runAsyncAction'
 import { useSubTaskStore } from './subtask'
 
-/**
- * 任务 Store（Pinia setup store）
- */
+const TASK_OPERATION_TYPES = {
+  create: 'task:create',
+  toggle: 'task:toggle',
+  delete: 'task:delete',
+  update: 'task:update',
+  clearCompleted: 'task:clear-completed',
+  reorder: 'task:reorder'
+} as const
+
 export const useTaskStore = defineStore('task', () => {
   const tasks = ref<Task[]>([])
   const isLoading = ref(false)
-
-  // ─── pendingCounts（初始从 IPC 拉取，后续本地维护，消除冗余 IPC）
   const pendingCounts = ref<Record<number, number>>({})
 
   const toast = useToast()
 
+  const isCreatingTask = computed(() => hasPendingOperation({ type: TASK_OPERATION_TYPES.create }))
+  const isClearingCompleted = computed(() =>
+    hasPendingOperation({ type: TASK_OPERATION_TYPES.clearCompleted })
+  )
+  const isReorderingTasks = computed(() =>
+    hasPendingOperation({ type: TASK_OPERATION_TYPES.reorder })
+  )
+
   function _adjustPendingCount(categoryId: number, delta: number) {
-    const cur = pendingCounts.value[categoryId] ?? 0
-    pendingCounts.value[categoryId] = Math.max(0, cur + delta)
+    const current = pendingCounts.value[categoryId] ?? 0
+    pendingCounts.value[categoryId] = Math.max(0, current + delta)
+  }
+
+  function restorePendingCount(
+    categoryId: number,
+    previousPendingCount: number,
+    hadPendingCount: boolean
+  ) {
+    if (hadPendingCount) {
+      pendingCounts.value[categoryId] = previousPendingCount
+      return
+    }
+
+    delete pendingCounts.value[categoryId]
+  }
+
+  function restoreTaskOrder(previousOrderedIds: number[]) {
+    const tasksById = new Map(tasks.value.map((task) => [task.id, task]))
+    const restoredTasks = previousOrderedIds
+      .map((id) => tasksById.get(id))
+      .filter((task): task is Task => Boolean(task))
+
+    if (restoredTasks.length === tasks.value.length) {
+      tasks.value = restoredTasks
+    }
+  }
+
+  function isTaskDeleting(id: number) {
+    return hasPendingOperation({ type: TASK_OPERATION_TYPES.delete, entityId: id })
+  }
+
+  function isTaskSaving(id: number) {
+    return hasPendingOperation({ type: TASK_OPERATION_TYPES.update, entityId: id })
+  }
+
+  function isTaskToggling(id: number) {
+    return hasPendingOperation({ type: TASK_OPERATION_TYPES.toggle, entityId: id })
+  }
+
+  function isTaskBusy(id: number) {
+    return isTaskDeleting(id) || isTaskSaving(id) || isTaskToggling(id)
   }
 
   async function initPendingCounts() {
     try {
       pendingCounts.value = await db.getPendingTaskCounts()
-    } catch (e) {
-      console.error('[taskStore] initPendingCounts 失败:', e)
-      // 初始化失败不阻塞主流程，仅记录日志
+    } catch (error) {
+      console.error('[taskStore] initPendingCounts failed', error)
     }
   }
 
   async function fetchTasks(categoryId: number) {
     isLoading.value = true
+
     try {
       tasks.value = await db.getTasks(categoryId)
-      // 以实际数据校正当前分类的 pending 数
-      const pending = tasks.value.filter((t) => !t.is_completed && t.parent_id === null).length
+      const pending = tasks.value.filter(
+        (task) => !task.is_completed && task.parent_id === null
+      ).length
       pendingCounts.value[categoryId] = pending
-    } catch (e) {
-      console.error('[taskStore] fetchTasks 失败:', e)
+    } catch (error) {
+      console.error('[taskStore] fetchTasks failed', error)
       toast.show('加载任务列表失败，请重试')
-      throw e
+      throw error
     } finally {
       isLoading.value = false
     }
@@ -51,92 +110,203 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   async function addTask(content: string, categoryId: number) {
-    try {
-      const newTask = await db.createTask(content, categoryId)
-      // 乐观插入（ORDER BY order_index DESC，新任务排最前）
-      tasks.value.unshift({ ...newTask, subtask_total: 0, subtask_done: 0 })
-      _adjustPendingCount(categoryId, 1)
-    } catch (e) {
-      console.error('[taskStore] addTask 失败:', e)
-      toast.show('创建任务失败，请重试')
-      throw e
-    }
+    return runAsyncAction({
+      key: buildPendingOperationKey(TASK_OPERATION_TYPES.create, categoryId),
+      type: TASK_OPERATION_TYPES.create,
+      entityId: categoryId,
+      execute: () => db.createTask(content, categoryId),
+      onSuccess: (newTask) => {
+        tasks.value.unshift({ ...newTask, subtask_total: 0, subtask_done: 0 })
+        _adjustPendingCount(categoryId, 1)
+      },
+      errorMessage: '创建任务失败，请重试',
+      logPrefix: '[taskStore] addTask failed'
+    })
   }
 
   async function toggleTask(id: number, categoryId: number) {
-    const task = tasks.value.find((t) => t.id === id)
-    if (!task) return
-    const newCompleted = !task.is_completed
-    // 乐观更新 UI — fire-and-forget
-    task.is_completed = newCompleted
-    _adjustPendingCount(categoryId, newCompleted ? -1 : 1)
-    db.toggleTaskComplete(id).catch((e) => console.error('[taskStore] toggleTask IPC 失败:', e))
+    const task = tasks.value.find((item) => item.id === id)
+    if (!task) return false
 
-    // 规则1：完成主待办时，联动完成所有子待办（DB 层批量 SQL，不依赖子任务是否展开）
-    if (newCompleted) {
-      db.batchCompleteSubTasks(id).catch((e) =>
-        console.error('[taskStore] 联动批量完成子待办 IPC 失败:', e)
-      )
-      // 若子任务已在内存中加载，同步更新 UI 状态
-      const subTaskStore = useSubTaskStore()
-      const subs = subTaskStore.subTasksMap[id]
-      if (subs && subs.length > 0) {
-        for (const sub of subs) {
-          sub.is_completed = true
+    const subTaskStore = useSubTaskStore()
+    const subTasks = subTaskStore.subTasksMap[id]
+    const nextCompleted = !task.is_completed
+    const previousTaskCompleted = task.is_completed
+    const previousSubtaskDone = task.subtask_done
+    const previousPendingCount = pendingCounts.value[categoryId] ?? 0
+    const hadPendingCount = categoryId in pendingCounts.value
+    const previousSubTaskStates = subTasks?.map((subTask) => ({
+      id: subTask.id,
+      is_completed: subTask.is_completed
+    }))
+
+    return runAsyncAction({
+      key: buildPendingOperationKey(TASK_OPERATION_TYPES.toggle, id),
+      type: TASK_OPERATION_TYPES.toggle,
+      entityId: id,
+      before: () => {
+        task.is_completed = nextCompleted
+        _adjustPendingCount(categoryId, nextCompleted ? -1 : 1)
+
+        if (nextCompleted && subTasks) {
+          subTasks.forEach((subTask) => {
+            subTask.is_completed = true
+          })
+          subTaskStore.syncParentTaskStats(id)
         }
-        task.subtask_done = task.subtask_total
-      }
-    }
+      },
+      execute: async () => {
+        await db.setTaskCompleted(id, nextCompleted)
+
+        if (nextCompleted) {
+          await db.batchCompleteSubTasks(id)
+        }
+      },
+      rollback: () => {
+        task.is_completed = previousTaskCompleted
+        restorePendingCount(categoryId, previousPendingCount, hadPendingCount)
+
+        if (subTasks && previousSubTaskStates) {
+          const stateById = new Map(
+            previousSubTaskStates.map((subTask) => [subTask.id, subTask.is_completed])
+          )
+
+          subTasks.forEach((subTask) => {
+            const previousSubTaskCompleted = stateById.get(subTask.id)
+            if (previousSubTaskCompleted !== undefined) {
+              subTask.is_completed = previousSubTaskCompleted
+            }
+          })
+
+          subTaskStore.syncParentTaskStats(id)
+        } else {
+          task.subtask_done = previousSubtaskDone
+        }
+      },
+      onError: async () => {
+        try {
+          await db.setTaskCompleted(id, previousTaskCompleted)
+        } catch (error) {
+          console.error('[taskStore] toggleTask compensation failed', error)
+        }
+      },
+      errorMessage: '更新任务状态失败，请重试',
+      logPrefix: '[taskStore] toggleTask failed'
+    })
   }
 
   async function deleteTask(id: number, categoryId: number) {
-    const idx = tasks.value.findIndex((t) => t.id === id)
-    if (idx === -1) return
-    const task = tasks.value[idx]
-    if (!task.is_completed) _adjustPendingCount(categoryId, -1)
-    // 乐观删除 UI — fire-and-forget
-    tasks.value.splice(idx, 1)
-    db.deleteTask(id).catch((e) => console.error('[taskStore] deleteTask IPC 失败:', e))
+    const index = tasks.value.findIndex((task) => task.id === id)
+    if (index === -1) return false
+
+    const task = tasks.value[index]
+    const previousTasks = tasks.value.slice()
+    const previousPendingCount = pendingCounts.value[categoryId] ?? 0
+    const hadPendingCount = categoryId in pendingCounts.value
+
+    return runAsyncAction({
+      key: buildPendingOperationKey(TASK_OPERATION_TYPES.delete, id),
+      type: TASK_OPERATION_TYPES.delete,
+      entityId: id,
+      before: () => {
+        if (!task.is_completed) {
+          _adjustPendingCount(categoryId, -1)
+        }
+
+        tasks.value.splice(index, 1)
+      },
+      execute: () => db.deleteTask(id),
+      rollback: () => {
+        tasks.value = previousTasks
+        restorePendingCount(categoryId, previousPendingCount, hadPendingCount)
+      },
+      errorMessage: '删除任务失败，请重试',
+      logPrefix: '[taskStore] deleteTask failed'
+    })
   }
 
   async function updateTaskContent(id: number, content: string) {
-    const task = tasks.value.find((t) => t.id === id)
-    if (task) task.content = content
-    // 乐观更新 UI — fire-and-forget
-    db.updateTask(id, { content }).catch((e) =>
-      console.error('[taskStore] updateTaskContent IPC 失败:', e)
-    )
+    const task = tasks.value.find((item) => item.id === id)
+    if (!task) return false
+
+    const previousContent = task.content
+
+    return runAsyncAction({
+      key: buildPendingOperationKey(TASK_OPERATION_TYPES.update, id),
+      type: TASK_OPERATION_TYPES.update,
+      entityId: id,
+      before: () => {
+        task.content = content
+      },
+      execute: () => db.updateTask(id, { content }),
+      rollback: () => {
+        task.content = previousContent
+      },
+      errorMessage: '保存任务失败，请重试',
+      logPrefix: '[taskStore] updateTaskContent failed'
+    })
   }
 
   async function clearCompletedTasks() {
-    const completedIds = tasks.value.filter((t) => t.is_completed).map((t) => t.id)
+    const completedIds = tasks.value.filter((task) => task.is_completed).map((task) => task.id)
     if (completedIds.length === 0) return undefined
-    const completedSet = new Set(completedIds)
-    // 乐观删除 UI — fire-and-forget
-    tasks.value = tasks.value.filter((t) => !completedSet.has(t.id))
-    db.deleteTasks(completedIds).catch((e) =>
-      console.error('[taskStore] clearCompletedTasks IPC 失败:', e)
-    )
-    return completedIds
+
+    const completedIdSet = new Set(completedIds)
+    const previousTasks = tasks.value.slice()
+
+    const success = await runAsyncAction({
+      key: buildPendingOperationKey(TASK_OPERATION_TYPES.clearCompleted, 'current'),
+      type: TASK_OPERATION_TYPES.clearCompleted,
+      entityId: 'current',
+      before: () => {
+        tasks.value = tasks.value.filter((task) => !completedIdSet.has(task.id))
+      },
+      execute: () => db.deleteTasks(completedIds),
+      rollback: () => {
+        tasks.value = previousTasks
+      },
+      errorMessage: '清空已完成失败，请重试',
+      logPrefix: '[taskStore] clearCompletedTasks failed'
+    })
+
+    return success ? completedIds : undefined
   }
 
   function removePendingCount(id: number) {
     delete pendingCounts.value[id]
   }
 
-  /**
-   * 拖拽排序后重排任务列表
-   * tasks.value 已由 vuedraggable 通过 v-model 直接更新，此处仅需持久化
-   */
-  function reorderTasks() {
-    const orderedIds = tasks.value.map((t) => t.id)
-    db.reorderTasks(orderedIds).catch((e) => console.error('[taskStore] reorderTasks IPC 失败:', e))
+  async function reorderTasks(previousOrderedIds: number[]) {
+    const orderedIds = tasks.value.map((task) => task.id)
+
+    if (
+      previousOrderedIds.length === orderedIds.length &&
+      previousOrderedIds.every((taskId, index) => taskId === orderedIds[index])
+    ) {
+      return true
+    }
+
+    return runAsyncAction({
+      key: buildPendingOperationKey(TASK_OPERATION_TYPES.reorder, 'current'),
+      type: TASK_OPERATION_TYPES.reorder,
+      entityId: 'current',
+      execute: () => db.reorderTasks(orderedIds),
+      rollback: () => {
+        restoreTaskOrder(previousOrderedIds)
+      },
+      errorMessage: '保存排序失败，请重试',
+      logPrefix: '[taskStore] reorderTasks failed'
+    })
   }
 
   return {
     tasks,
     isLoading,
     pendingCounts,
+    pendingOperations,
+    isCreatingTask,
+    isClearingCompleted,
+    isReorderingTasks,
     _adjustPendingCount,
     initPendingCounts,
     fetchTasks,
@@ -147,6 +317,10 @@ export const useTaskStore = defineStore('task', () => {
     updateTaskContent,
     clearCompletedTasks,
     removePendingCount,
-    reorderTasks
+    reorderTasks,
+    isTaskDeleting,
+    isTaskSaving,
+    isTaskToggling,
+    isTaskBusy
   }
 })

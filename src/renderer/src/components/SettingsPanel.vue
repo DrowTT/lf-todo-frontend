@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { Settings, X, Power, MonitorOff, Trash2, Download, Info, Keyboard, RefreshCw } from 'lucide-vue-next'
+import {
+  Settings,
+  X,
+  Power,
+  MonitorOff,
+  Trash2,
+  Download,
+  Info,
+  Keyboard,
+  RefreshCw
+} from 'lucide-vue-next'
 import { useHotkeys, HOTKEY_LABELS, keyToLabel, type HotkeyAction } from '../composables/useHotkeys'
 import { useConfirm } from '../composables/useConfirm'
 
@@ -32,7 +42,14 @@ const appInfo = ref({
 })
 
 // ─── 更新状态 ───────────────────────────────────────────────────────
-type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'
+type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
 
 const updateStatus = ref<UpdateStatus>('idle')
 const updateVersion = ref('')
@@ -42,7 +59,7 @@ const updateError = ref('')
 // 监听来自主进程的更新状态
 const setupUpdateListener = () => {
   if (!isElectron) return
-  window.api.updater.onUpdateStatus((data: any) => {
+  window.api.updater.onUpdateStatus((data) => {
     updateStatus.value = data.status
     if (data.status === 'available') {
       updateVersion.value = data.version || ''
@@ -472,14 +489,17 @@ onUnmounted(() => {
             <!-- 更新区域 -->
             <div class="update-section">
               <!-- 闲置 / 已是最新 -->
-              <div v-if="updateStatus === 'idle' || updateStatus === 'not-available'" class="update-section__row">
-                <span v-if="updateStatus === 'not-available'" class="update-section__text update-section__text--success">
+              <div
+                v-if="updateStatus === 'idle' || updateStatus === 'not-available'"
+                class="update-section__row"
+              >
+                <span
+                  v-if="updateStatus === 'not-available'"
+                  class="update-section__text update-section__text--success"
+                >
                   ✓ 已是最新版本
                 </span>
-                <button
-                  class="update-section__btn"
-                  @click="handleCheckUpdate"
-                >
+                <button class="update-section__btn" @click="handleCheckUpdate">
                   <RefreshCw :size="12" />
                   检查更新
                 </button>
@@ -509,9 +529,7 @@ onUnmounted(() => {
 
               <!-- 下载中 -->
               <div v-else-if="updateStatus === 'downloading'" class="update-section__column">
-                <span class="update-section__text">
-                  正在下载更新… {{ updatePercent }}%
-                </span>
+                <span class="update-section__text"> 正在下载更新… {{ updatePercent }}% </span>
                 <div class="update-section__progress">
                   <div
                     class="update-section__progress-bar"
@@ -538,12 +556,7 @@ onUnmounted(() => {
                 <span class="update-section__text update-section__text--error">
                   检查失败：{{ updateError }}
                 </span>
-                <button
-                  class="update-section__btn"
-                  @click="handleCheckUpdate"
-                >
-                  重试
-                </button>
+                <button class="update-section__btn" @click="handleCheckUpdate">重试</button>
               </div>
             </div>
 
@@ -1214,8 +1227,12 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 // ─── 过渡动画 ──────────────────────────────────────────────────────

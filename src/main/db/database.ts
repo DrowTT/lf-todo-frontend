@@ -346,9 +346,7 @@ export function reorderTasks(orderedIds: number[]): void {
  */
 export function deleteCompletedTasksBefore(timestamp: number): number {
   const result = getDb()
-    .prepare(
-      'DELETE FROM tasks WHERE is_completed = 1 AND parent_id IS NULL AND created_at < ?'
-    )
+    .prepare('DELETE FROM tasks WHERE is_completed = 1 AND parent_id IS NULL AND created_at < ?')
     .run(timestamp)
   return result.changes
 }

@@ -1,19 +1,25 @@
 <script setup lang="ts">
-import { ref, nextTick, computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { SendHorizonal } from 'lucide-vue-next'
-import { store } from '../store'
 import { useAutoHeight } from '../composables/useAutoHeight'
+import { store } from '../store'
+import { useTaskStore } from '../store/task'
+
+const taskStore = useTaskStore()
 
 const content = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const { adjustHeight, resetHeight } = useAutoHeight(textareaRef)
 
-// 是否有有效输入内容
 const hasContent = computed(() => content.value.trim().length > 0)
+const isSubmitting = computed(() => store.isLoading || taskStore.isCreatingTask)
 
-const handleSubmit = async (): Promise<void> => {
-  if (!hasContent.value) return
-  await store.addTask(content.value.trim())
+const handleSubmit = async () => {
+  if (!hasContent.value || isSubmitting.value) return
+
+  const created = await store.addTask(content.value.trim())
+  if (!created) return
+
   content.value = ''
   nextTick(resetHeight)
 }
@@ -29,15 +35,15 @@ const handleSubmit = async (): Promise<void> => {
         class="todo-input__field"
         placeholder="添加新的待办事项..."
         maxlength="100"
-        :disabled="store.isLoading"
+        :disabled="isSubmitting"
         @input="adjustHeight"
         @keydown.enter.exact.prevent="handleSubmit"
         @keyup.escape="($event.target as HTMLTextAreaElement).blur()"
       />
       <button
         class="todo-input__btn"
-        :class="{ 'todo-input__btn--active': hasContent }"
-        :disabled="!hasContent || store.isLoading"
+        :class="{ 'todo-input__btn--active': hasContent && !isSubmitting }"
+        :disabled="!hasContent || isSubmitting"
         @click="handleSubmit"
       >
         <SendHorizonal :size="18" />
@@ -52,7 +58,6 @@ const handleSubmit = async (): Promise<void> => {
 .todo-input {
   padding: $spacing-md $spacing-xl;
 
-  // 包裹层：让输入框和按钮融为一体
   &__wrapper {
     display: flex;
     align-items: stretch;
@@ -95,7 +100,6 @@ const handleSubmit = async (): Promise<void> => {
     }
   }
 
-  // 确认按钮 — 和输入框拼接
   &__btn {
     display: flex;
     align-items: center;

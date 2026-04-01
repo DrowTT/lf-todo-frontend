@@ -11,7 +11,7 @@ window.addEventListener('error', (event) => {
     filename: event.filename,
     lineno: event.lineno,
     colno: event.colno,
-    error: event.error instanceof Error ? event.error.stack ?? event.error.message : event.error
+    error: event.error instanceof Error ? (event.error.stack ?? event.error.message) : event.error
   })
 })
 
@@ -24,7 +24,7 @@ const vueApp = createApp(App)
 vueApp.config.errorHandler = (error, _instance, info) => {
   console.error('[renderer] vue error', {
     info,
-    error: error instanceof Error ? error.stack ?? error.message : error
+    error: error instanceof Error ? (error.stack ?? error.message) : error
   })
 }
 

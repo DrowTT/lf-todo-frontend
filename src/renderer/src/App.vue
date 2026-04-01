@@ -1,22 +1,22 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import TitleBar from './layout/TitleBar.vue'
+import { useAppBootstrap } from './app/useAppBootstrap'
 import CategoryList from './components/CategoryList.vue'
-import TodoList from './components/TodoList.vue'
-import SettingsPanel from './components/SettingsPanel.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
+import SettingsPanel from './components/SettingsPanel.vue'
 import ToastMessage from './components/ToastMessage.vue'
+import TodoList from './components/TodoList.vue'
 import { useConfirm } from './composables/useConfirm'
-import { useSidebarResize } from './composables/useSidebarResize'
 import { useHotkeys } from './composables/useHotkeys'
+import { useSidebarResize } from './composables/useSidebarResize'
+import TitleBar from './layout/TitleBar.vue'
 
 const { current, handleConfirm, handleCancel } = useConfirm()
 const { sidebarWidth, startResize } = useSidebarResize()
 
-// 初始化全局快捷键系统
+useAppBootstrap()
 useHotkeys()
 
-// 设置面板显隐状态
 const showSettings = ref(false)
 </script>
 
@@ -36,9 +36,7 @@ const showSettings = ref(false)
       @confirm="handleConfirm"
       @cancel="handleCancel"
     />
-    <!-- 全局操作结果提示 -->
     <ToastMessage />
-    <!-- 设置面板 -->
     <SettingsPanel :visible="showSettings" @close="showSettings = false" />
   </div>
 </template>
@@ -66,7 +64,6 @@ const showSettings = ref(false)
   flex-shrink: 0;
 }
 
-/* 拖拽条样式 */
 .resizer {
   position: absolute;
   top: 0;

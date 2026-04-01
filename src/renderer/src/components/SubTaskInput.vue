@@ -1,28 +1,32 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
-import { store } from '../store'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useAutoHeight } from '../composables/useAutoHeight'
+import { useSubTaskStore } from '../store/subtask'
 
 const props = defineProps<{
   parentId: number
 }>()
 
+const subTaskStore = useSubTaskStore()
+
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const content = ref('')
 
-// 提交子任务
+const { adjustHeight, resetHeight } = useAutoHeight(textareaRef)
+const isSubmitting = computed(() => subTaskStore.isCreatingSubTask(props.parentId))
+
 const handleSubmit = async () => {
   const trimmed = content.value.trim()
-  if (!trimmed) return
-  await store.addSubTask(trimmed, props.parentId)
+  if (!trimmed || isSubmitting.value) return
+
+  const created = await subTaskStore.addSubTask(trimmed, props.parentId)
+  if (!created) return
+
   content.value = ''
   nextTick(resetHeight)
   textareaRef.value?.focus()
 }
 
-const { adjustHeight, resetHeight } = useAutoHeight(textareaRef)
-
-// 挂载时同步初始化高度
 onMounted(() => adjustHeight())
 </script>
 
@@ -34,8 +38,9 @@ onMounted(() => adjustHeight())
       v-model="content"
       rows="1"
       class="sub-add__input"
-      placeholder="添加子任务…"
+      placeholder="添加子任务..."
       maxlength="200"
+      :disabled="isSubmitting"
       @input="adjustHeight"
       @keydown.enter.exact.prevent="handleSubmit"
       @keyup.escape="($event.target as HTMLTextAreaElement).blur()"
@@ -80,8 +85,13 @@ onMounted(() => adjustHeight())
   &::placeholder {
     color: $text-muted;
   }
+
   &:focus {
     color: $text-primary;
+  }
+
+  &:disabled {
+    opacity: 0.55;
   }
 }
 </style>

@@ -1,42 +1,116 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { db, Task } from '../db'
-import { useTaskStore } from './task'
 import { useToast } from '../composables/useToast'
+import {
+  buildPendingOperationKey,
+  hasPendingOperation,
+  pendingOperations,
+  runAsyncAction
+} from '../services/runAsyncAction'
+import { useTaskStore } from './task'
 
-// ─── 展开状态持久化辅助 ─────────────────────────────────────────
-// 统一的 localStorage 键名前缀：lf-todo:（参见 useSidebarResize.ts 和 categoryStore）
+const SUBTASK_OPERATION_TYPES = {
+  create: 'subtask:create',
+  toggle: 'subtask:toggle',
+  delete: 'subtask:delete',
+  update: 'subtask:update'
+} as const
+
 const expandedKey = (categoryId: number) => `lf-todo:expanded-${categoryId}`
 
 function loadExpandedIds(categoryId: number): Set<number> {
   try {
     const raw = localStorage.getItem(expandedKey(categoryId))
-    if (raw) return new Set(JSON.parse(raw) as number[])
+    if (raw) {
+      return new Set(JSON.parse(raw) as number[])
+    }
   } catch {
-    // localStorage 解析失败时忽略，返回空 Set
+    return new Set()
   }
+
   return new Set()
 }
 
 function saveExpandedIds(categoryId: number, ids: Set<number>) {
   localStorage.setItem(expandedKey(categoryId), JSON.stringify([...ids]))
 }
-// ────────────────────────────────────────────────────────────────
 
-/**
- * 子任务 Store（Pinia setup store）
- *
- * expandedTaskIds 使用 ref 包裹 Set 而非直接放入 reactive，
- * 避免 reactive 内嵌 Set 在某些边缘场景下响应跟踪丢失的问题。
- * 通过 ref 包裹，每次 .add() / .delete() 只需重新赋值包装对象即可
- * 触发依赖收集（参见 toggleExpand 实现）。
- */
 export const useSubTaskStore = defineStore('subTask', () => {
   const subTasksMap = ref<Record<number, Task[]>>({})
-  // 用 ref 包裹 Set，通过替换整个 Set 触发响应（确保视图更新）
   const expandedTaskIds = ref(new Set<number>())
 
   const toast = useToast()
+
+  function syncParentTaskStats(parentId: number) {
+    const taskStore = useTaskStore()
+    const parentTask = taskStore.tasks.find((task) => task.id === parentId)
+    const subTasks = subTasksMap.value[parentId]
+
+    if (!parentTask || !subTasks) return
+
+    parentTask.subtask_total = subTasks.length
+    parentTask.subtask_done = subTasks.filter((subTask) => subTask.is_completed).length
+  }
+
+  function captureParentTaskState(parentId: number) {
+    const taskStore = useTaskStore()
+    const parentTask = taskStore.tasks.find((task) => task.id === parentId)
+
+    if (!parentTask) return null
+
+    return {
+      is_completed: parentTask.is_completed,
+      subtask_total: parentTask.subtask_total,
+      subtask_done: parentTask.subtask_done,
+      category_id: parentTask.category_id,
+      pendingCount: taskStore.pendingCounts[parentTask.category_id] ?? 0,
+      hadPendingCount: parentTask.category_id in taskStore.pendingCounts
+    }
+  }
+
+  function restoreParentTaskState(
+    parentId: number,
+    snapshot: ReturnType<typeof captureParentTaskState>
+  ) {
+    if (!snapshot) return
+
+    const taskStore = useTaskStore()
+    const parentTask = taskStore.tasks.find((task) => task.id === parentId)
+
+    if (!parentTask) return
+
+    parentTask.is_completed = snapshot.is_completed
+    parentTask.subtask_total = snapshot.subtask_total
+    parentTask.subtask_done = snapshot.subtask_done
+
+    if (snapshot.hadPendingCount) {
+      taskStore.pendingCounts[snapshot.category_id] = snapshot.pendingCount
+      return
+    }
+
+    delete taskStore.pendingCounts[snapshot.category_id]
+  }
+
+  function isCreatingSubTask(parentId: number) {
+    return hasPendingOperation({ type: SUBTASK_OPERATION_TYPES.create, entityId: parentId })
+  }
+
+  function isSubTaskDeleting(id: number) {
+    return hasPendingOperation({ type: SUBTASK_OPERATION_TYPES.delete, entityId: id })
+  }
+
+  function isSubTaskSaving(id: number) {
+    return hasPendingOperation({ type: SUBTASK_OPERATION_TYPES.update, entityId: id })
+  }
+
+  function isSubTaskToggling(id: number) {
+    return hasPendingOperation({ type: SUBTASK_OPERATION_TYPES.toggle, entityId: id })
+  }
+
+  function isSubTaskBusy(id: number) {
+    return isSubTaskDeleting(id) || isSubTaskSaving(id) || isSubTaskToggling(id)
+  }
 
   function reset() {
     subTasksMap.value = {}
@@ -47,28 +121,27 @@ export const useSubTaskStore = defineStore('subTask', () => {
     expandedTaskIds.value = loadExpandedIds(categoryId)
   }
 
-  function _persistExpanded(categoryId: number) {
+  function persistExpanded(categoryId: number) {
     saveExpandedIds(categoryId, expandedTaskIds.value)
   }
 
   async function fetchSubTasks(parentId: number) {
     try {
       subTasksMap.value[parentId] = await db.getSubTasks(parentId)
-    } catch (e) {
-      console.error('[subTaskStore] fetchSubTasks 失败:', e)
-      throw e
+      syncParentTaskStats(parentId)
+    } catch (error) {
+      console.error('[subTaskStore] fetchSubTasks failed', error)
+      throw error
     }
   }
 
-  /** 并行加载所有已展开子任务，避免 N 次串行 IPC 往返（优化 #5） */
   async function fetchExpandedSubTasks(expandedIds: Set<number>) {
-    const needed = [...expandedIds].filter((id) => !subTasksMap.value[id])
-    await Promise.all(needed.map((id) => fetchSubTasks(id)))
+    const neededIds = [...expandedIds].filter((id) => !subTasksMap.value[id])
+    await Promise.all(neededIds.map((id) => fetchSubTasks(id)))
   }
 
   async function toggleExpand(taskId: number, categoryId: number) {
     if (expandedTaskIds.value.has(taskId)) {
-      // 替换整个 Set 以确保 Vue 响应系统感知变更
       const next = new Set(expandedTaskIds.value)
       next.delete(taskId)
       expandedTaskIds.value = next
@@ -78,138 +151,224 @@ export const useSubTaskStore = defineStore('subTask', () => {
           await fetchSubTasks(taskId)
         } catch {
           toast.show('加载子任务失败，请重试')
-          return
+          return false
         }
       }
+
       expandedTaskIds.value = new Set(expandedTaskIds.value).add(taskId)
     }
-    _persistExpanded(categoryId)
+
+    persistExpanded(categoryId)
+    return true
   }
 
   async function addSubTask(content: string, parentId: number) {
-    try {
-      const newSubTask = await db.createSubTask(content, parentId)
-      if (!subTasksMap.value[parentId]) {
-        subTasksMap.value[parentId] = []
-      }
-      subTasksMap.value[parentId] = [...subTasksMap.value[parentId], newSubTask]
-      // 更新父任务统计字段
-      const taskStore = useTaskStore()
-      const parent = taskStore.tasks.find((t) => t.id === parentId)
-      if (parent) {
-        parent.subtask_total = (parent.subtask_total ?? 0) + 1
-        // 规则3：在已完成的主待办下新增子待办时，自动取消主待办完成状态
-        if (parent.is_completed) {
-          parent.is_completed = false
-          taskStore._adjustPendingCount(parent.category_id, 1)
-          db.setTaskCompleted(parentId, false).catch((e) =>
-            console.error('[subTaskStore] 联动取消主待办完成 IPC 失败:', e)
-          )
+    const taskStore = useTaskStore()
+    const parentTask = taskStore.tasks.find((task) => task.id === parentId)
+    const parentWasCompleted = parentTask?.is_completed ?? false
+    let createdSubTask: Task | null = null
+
+    return runAsyncAction({
+      key: buildPendingOperationKey(SUBTASK_OPERATION_TYPES.create, parentId),
+      type: SUBTASK_OPERATION_TYPES.create,
+      entityId: parentId,
+      execute: async () => {
+        createdSubTask = await db.createSubTask(content, parentId)
+
+        if (parentWasCompleted) {
+          await db.setTaskCompleted(parentId, false)
         }
-      }
-    } catch (e) {
-      console.error('[subTaskStore] addSubTask 失败:', e)
-      toast.show('创建子任务失败，请重试')
-      throw e
-    }
+
+        return createdSubTask
+      },
+      onSuccess: (newSubTask) => {
+        const currentSubTasks = subTasksMap.value[parentId] ?? []
+        subTasksMap.value[parentId] = [...currentSubTasks, newSubTask]
+        syncParentTaskStats(parentId)
+
+        if (parentTask && parentWasCompleted) {
+          parentTask.is_completed = false
+          taskStore._adjustPendingCount(parentTask.category_id, 1)
+        }
+      },
+      onError: async () => {
+        if (!createdSubTask) return
+
+        try {
+          await db.deleteTask(createdSubTask.id)
+        } catch (error) {
+          console.error('[subTaskStore] addSubTask compensation failed', error)
+        }
+      },
+      errorMessage: '创建子任务失败，请重试',
+      logPrefix: '[subTaskStore] addSubTask failed'
+    })
   }
 
   async function toggleSubTask(id: number, parentId: number) {
     const list = subTasksMap.value[parentId]
-    const sub = list?.find((t) => t.id === id)
-    if (!sub) return
-    const newCompleted = !sub.is_completed
-    // 乐观更新 UI — fire-and-forget
-    sub.is_completed = newCompleted
+    const subTask = list?.find((task) => task.id === id)
+    if (!list || !subTask) return false
+
     const taskStore = useTaskStore()
-    const parent = taskStore.tasks.find((t) => t.id === parentId)
-    if (parent) {
-      parent.subtask_done = Math.max(0, (parent.subtask_done ?? 0) + (newCompleted ? 1 : -1))
+    const parentTask = taskStore.tasks.find((task) => task.id === parentId)
+    const parentSnapshot = captureParentTaskState(parentId)
+    const previousSubTaskCompleted = subTask.is_completed
+    const nextCompleted = !subTask.is_completed
 
-      // 规则2：所有子待办都完成时，自动完成主待办
-      const allDone = list!.every((t) => t.is_completed)
-      if (allDone && !parent.is_completed) {
-        parent.is_completed = true
-        taskStore._adjustPendingCount(parent.category_id, -1)
-        db.setTaskCompleted(parentId, true).catch((e) =>
-          console.error('[subTaskStore] 联动完成主待办 IPC 失败:', e)
-        )
-      }
+    let nextParentCompleted: boolean | null = null
+    if (parentTask) {
+      const allDoneAfterToggle = list.every((item) =>
+        item.id === id ? nextCompleted : item.is_completed
+      )
 
-      // 规则3：取消子待办完成时，若主待办已完成则自动取消
-      if (!newCompleted && parent.is_completed) {
-        parent.is_completed = false
-        taskStore._adjustPendingCount(parent.category_id, 1)
-        db.setTaskCompleted(parentId, false).catch((e) =>
-          console.error('[subTaskStore] 联动取消主待办完成 IPC 失败:', e)
-        )
+      if (!nextCompleted && parentTask.is_completed) {
+        nextParentCompleted = false
+      } else if (nextCompleted && allDoneAfterToggle) {
+        nextParentCompleted = true
+      } else {
+        nextParentCompleted = parentTask.is_completed
       }
     }
-    db.toggleTaskComplete(id).catch((e) =>
-      console.error('[subTaskStore] toggleSubTask IPC 失败:', e)
-    )
+
+    return runAsyncAction({
+      key: buildPendingOperationKey(SUBTASK_OPERATION_TYPES.toggle, id),
+      type: SUBTASK_OPERATION_TYPES.toggle,
+      entityId: id,
+      before: () => {
+        subTask.is_completed = nextCompleted
+        syncParentTaskStats(parentId)
+
+        if (!parentTask || nextParentCompleted === null) return
+
+        if (nextParentCompleted && !parentTask.is_completed) {
+          parentTask.is_completed = true
+          taskStore._adjustPendingCount(parentTask.category_id, -1)
+        }
+
+        if (!nextParentCompleted && parentTask.is_completed) {
+          parentTask.is_completed = false
+          taskStore._adjustPendingCount(parentTask.category_id, 1)
+        }
+      },
+      execute: async () => {
+        await db.setTaskCompleted(id, nextCompleted)
+
+        if (parentTask && nextParentCompleted !== parentSnapshot?.is_completed) {
+          await db.setTaskCompleted(parentId, Boolean(nextParentCompleted))
+        }
+      },
+      rollback: () => {
+        subTask.is_completed = previousSubTaskCompleted
+        restoreParentTaskState(parentId, parentSnapshot)
+      },
+      onError: async () => {
+        try {
+          await db.setTaskCompleted(id, previousSubTaskCompleted)
+
+          if (parentSnapshot && nextParentCompleted !== parentSnapshot.is_completed) {
+            await db.setTaskCompleted(parentId, parentSnapshot.is_completed)
+          }
+        } catch (error) {
+          console.error('[subTaskStore] toggleSubTask compensation failed', error)
+        }
+      },
+      errorMessage: '更新子任务状态失败，请重试',
+      logPrefix: '[subTaskStore] toggleSubTask failed'
+    })
   }
 
   async function deleteSubTask(id: number, parentId: number) {
     const list = subTasksMap.value[parentId]
-    if (!list) return
-    const sub = list.find((t) => t.id === id)
-    // 乐观删除 UI — fire-and-forget
-    subTasksMap.value[parentId] = list.filter((t) => t.id !== id)
-    const taskStore = useTaskStore()
-    const parent = taskStore.tasks.find((t) => t.id === parentId)
-    if (parent) {
-      parent.subtask_total = Math.max(0, (parent.subtask_total ?? 0) - 1)
-      if (sub?.is_completed) {
-        parent.subtask_done = Math.max(0, (parent.subtask_done ?? 0) - 1)
-      }
-    }
-    db.deleteTask(id).catch((e) => console.error('[subTaskStore] deleteSubTask IPC 失败:', e))
+    if (!list) return false
+
+    const previousList = list.slice()
+    const parentSnapshot = captureParentTaskState(parentId)
+
+    return runAsyncAction({
+      key: buildPendingOperationKey(SUBTASK_OPERATION_TYPES.delete, id),
+      type: SUBTASK_OPERATION_TYPES.delete,
+      entityId: id,
+      before: () => {
+        subTasksMap.value[parentId] = list.filter((task) => task.id !== id)
+        syncParentTaskStats(parentId)
+      },
+      execute: () => db.deleteTask(id),
+      rollback: () => {
+        subTasksMap.value[parentId] = previousList
+        restoreParentTaskState(parentId, parentSnapshot)
+      },
+      errorMessage: '删除子任务失败，请重试',
+      logPrefix: '[subTaskStore] deleteSubTask failed'
+    })
   }
 
   async function updateSubTaskContent(id: number, parentId: number, content: string) {
     const list = subTasksMap.value[parentId]
-    const sub = list?.find((t) => t.id === id)
-    if (sub) sub.content = content
-    // 乐观更新 UI — fire-and-forget
-    db.updateTask(id, { content }).catch((e) =>
-      console.error('[subTaskStore] updateSubTaskContent IPC 失败:', e)
-    )
+    const subTask = list?.find((task) => task.id === id)
+    if (!subTask) return false
+
+    const previousContent = subTask.content
+
+    return runAsyncAction({
+      key: buildPendingOperationKey(SUBTASK_OPERATION_TYPES.update, id),
+      type: SUBTASK_OPERATION_TYPES.update,
+      entityId: id,
+      before: () => {
+        subTask.content = content
+      },
+      execute: () => db.updateTask(id, { content }),
+      rollback: () => {
+        subTask.content = previousContent
+      },
+      errorMessage: '保存子任务失败，请重试',
+      logPrefix: '[subTaskStore] updateSubTaskContent failed'
+    })
   }
 
   function removeTask(id: number, categoryId: number) {
     delete subTasksMap.value[id]
+
     if (expandedTaskIds.value.has(id)) {
       const next = new Set(expandedTaskIds.value)
       next.delete(id)
       expandedTaskIds.value = next
-      _persistExpanded(categoryId)
+      persistExpanded(categoryId)
     }
   }
 
   function removeCompletedTasks(ids: number[], categoryId: number) {
     const next = new Set(expandedTaskIds.value)
+
     ids.forEach((id) => {
       delete subTasksMap.value[id]
       next.delete(id)
     })
+
     expandedTaskIds.value = next
-    _persistExpanded(categoryId)
+    persistExpanded(categoryId)
   }
 
   return {
     subTasksMap,
     expandedTaskIds,
+    pendingOperations,
     reset,
     loadExpandedForCategory,
     fetchSubTasks,
     fetchExpandedSubTasks,
     toggleExpand,
+    syncParentTaskStats,
     addSubTask,
     toggleSubTask,
     deleteSubTask,
     updateSubTaskContent,
     removeTask,
-    removeCompletedTasks
+    removeCompletedTasks,
+    isCreatingSubTask,
+    isSubTaskDeleting,
+    isSubTaskSaving,
+    isSubTaskToggling,
+    isSubTaskBusy
   }
 })

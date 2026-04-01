@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, nextTick, onMounted } from 'vue'
-import { store } from '../store'
+import { nextTick, ref } from 'vue'
+import { Plus, Settings } from 'lucide-vue-next'
 import { useConfirm } from '../composables/useConfirm'
 import { useContextMenu } from '../composables/useContextMenu'
-import { Plus, Settings } from 'lucide-vue-next'
+import { store } from '../store'
 
 const emit = defineEmits<{
   'open-settings': []
@@ -16,23 +16,22 @@ const {
   close: closeContextMenu
 } = useContextMenu<number>()
 
-onMounted(() => store.fetchCategories())
-
 const newCategoryName = ref('')
 const isAdding = ref(false)
 const inputRef = ref<HTMLInputElement | null>(null)
 
-// 重命名状态
 const editingCategoryId = ref<number | null>(null)
 const editingName = ref('')
 const editInputRef = ref<HTMLInputElement | null>(null)
 
 const handleAddCategory = async () => {
-  if (!newCategoryName.value.trim()) {
+  const trimmed = newCategoryName.value.trim()
+  if (!trimmed) {
     isAdding.value = false
     return
   }
-  await store.addCategory(newCategoryName.value.trim())
+
+  await store.addCategory(trimmed)
   newCategoryName.value = ''
   isAdding.value = false
 }
@@ -45,29 +44,33 @@ const startAdding = async () => {
 
 const handleDeleteCategory = async () => {
   if (contextMenu.value.data === null) return
-  const confirmed = await confirm('确认删除该分类及其所有待办吗?')
+
+  const confirmed = await confirm('确认删除该分类及其所有待办吗？')
   if (confirmed) {
     await store.deleteCategory(contextMenu.value.data)
   }
+
   closeContextMenu()
 }
 
 const handleRenameClick = async () => {
   if (contextMenu.value.data === null) return
-  const category = store.categories.find((c) => c.id === contextMenu.value.data)
-  if (category) {
-    editingCategoryId.value = category.id
-    editingName.value = category.name
-    closeContextMenu()
-    await nextTick()
-    editInputRef.value?.focus()
-  }
+
+  const category = store.categories.find((item) => item.id === contextMenu.value.data)
+  if (!category) return
+
+  editingCategoryId.value = category.id
+  editingName.value = category.name
+  closeContextMenu()
+  await nextTick()
+  editInputRef.value?.focus()
 }
 
 const handleRenameConfirm = async () => {
   if (editingCategoryId.value !== null && editingName.value.trim()) {
     await store.updateCategory(editingCategoryId.value, editingName.value.trim())
   }
+
   cancelRename()
 }
 
@@ -86,18 +89,18 @@ const cancelRename = () => {
     <div class="category-list__content">
       <ul>
         <li
-          v-for="cat in store.categories"
-          :key="cat.id"
+          v-for="category in store.categories"
+          :key="category.id"
           class="category-item"
           :class="{
-            'category-item--active': store.currentCategoryId === cat.id,
-            'category-item--editing': editingCategoryId === cat.id
+            'category-item--active': store.currentCategoryId === category.id,
+            'category-item--editing': editingCategoryId === category.id
           }"
-          @click="editingCategoryId !== cat.id && store.selectCategory(cat.id)"
-          @contextmenu="openContextMenu($event, cat.id)"
+          @click="editingCategoryId !== category.id && store.selectCategory(category.id)"
+          @contextmenu="openContextMenu($event, category.id)"
         >
           <input
-            v-if="editingCategoryId === cat.id"
+            v-if="editingCategoryId === category.id"
             ref="editInputRef"
             v-model="editingName"
             class="category-item__edit-input"
@@ -108,9 +111,9 @@ const cancelRename = () => {
             @click.stop
           />
           <template v-else>
-            <span class="category-item__name">{{ cat.name }}</span>
-            <span v-if="store.pendingCounts[cat.id]" class="category-item__badge">
-              {{ store.pendingCounts[cat.id] }}
+            <span class="category-item__name">{{ category.name }}</span>
+            <span v-if="store.pendingCounts[category.id]" class="category-item__badge">
+              {{ store.pendingCounts[category.id] }}
             </span>
           </template>
         </li>
@@ -142,7 +145,6 @@ const cancelRename = () => {
       </button>
     </div>
 
-    <!-- 右键菜单 -->
     <div
       v-if="contextMenu.visible"
       class="context-menu"
@@ -295,7 +297,6 @@ const cancelRename = () => {
     background: $accent-soft;
     color: $text-primary;
 
-    // 左侧 accent 指示条
     &::before {
       content: '';
       position: absolute;
@@ -329,12 +330,12 @@ const cancelRename = () => {
     background: $accent-soft;
     border-radius: 10px;
   }
+
   &--editing {
     padding: $spacing-xs $spacing-md;
     margin: 0;
   }
 
-  // inline 重命名输入框 — 与新建分类输入框样式一致
   &__edit-input {
     width: 100%;
     background: $bg-input;

@@ -54,7 +54,9 @@ function writeStartupLog(scope: string, message: string, detail?: unknown): void
 }
 
 function resolveRuntimeAsset(fileName: string): string {
-  return is.dev ? join(app.getAppPath(), 'resources', fileName) : join(process.resourcesPath, fileName)
+  return is.dev
+    ? join(app.getAppPath(), 'resources', fileName)
+    : join(process.resourcesPath, fileName)
 }
 
 function registerSettingsHandlers(): void {

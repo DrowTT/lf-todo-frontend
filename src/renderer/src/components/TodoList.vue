@@ -1,78 +1,78 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
+import draggable from 'vuedraggable'
+import { ClipboardList, Sparkles } from 'lucide-vue-next'
+import { useConfirm } from '../composables/useConfirm'
 import { store } from '../store'
 import { useTaskStore } from '../store/task'
 import TodoInput from './TodoInput.vue'
 import TodoItem from './TodoItem.vue'
-import draggable from 'vuedraggable'
-import { computed } from 'vue'
-import { useConfirm } from '../composables/useConfirm'
-import { ClipboardList, Sparkles } from 'lucide-vue-next'
 
 const { confirm } = useConfirm()
 const taskStore = useTaskStore()
 
+const dragStartOrder = ref<number[]>([])
+
 const currentCategoryName = computed(() => {
-  const cat = store.categories.find((c) => c.id === store.currentCategoryId)
-  return cat ? cat.name : '未选择分类'
+  const category = store.categories.find((item) => item.id === store.currentCategoryId)
+  return category ? category.name : '未选择分类'
 })
 
-const completedCount = computed(() => {
-  return store.tasks.filter((t) => t.is_completed).length
-})
+const completedCount = computed(() => store.tasks.filter((task) => task.is_completed).length)
 
-// vuedraggable 需要可写 computed 来双向绑定 tasks 数组
 const draggableTasks = computed({
   get: () => taskStore.tasks,
-  set: (val) => {
-    taskStore.tasks = val
+  set: (value) => {
+    taskStore.tasks = value
   }
 })
 
 const handleClearCompleted = async () => {
-  const confirmed = await confirm(`确认删除 ${completedCount.value} 个已完成的待办吗?`)
+  const confirmed = await confirm(`确认删除 ${completedCount.value} 个已完成的待办吗？`)
   if (confirmed) {
-    store.clearCompletedTasks()
+    await store.clearCompletedTasks()
   }
 }
 
-// 拖拽结束 — 持久化新顺序
-const onDragEnd = () => {
-  store.reorderTasks()
+const onDragStart = () => {
+  dragStartOrder.value = taskStore.tasks.map((task) => task.id)
+}
+
+const onDragEnd = async () => {
+  await store.reorderTasks(dragStartOrder.value)
+  dragStartOrder.value = []
 }
 </script>
 
 <template>
   <div class="todo-panel">
-    <!-- 顶栏 -->
     <header class="todo-panel__header">
       <h1 class="todo-panel__title">
         {{ currentCategoryName }}
       </h1>
       <div class="todo-panel__actions">
         <span v-if="store.currentCategoryId" class="todo-panel__badge">
-          <span class="todo-panel__badge-num">{{
-            store.pendingCounts[store.currentCategoryId] ?? 0
-          }}</span>
+          <span class="todo-panel__badge-num">
+            {{ store.pendingCounts[store.currentCategoryId] ?? 0 }}
+          </span>
           <span class="todo-panel__badge-label">待办</span>
         </span>
+        <span v-if="taskStore.isReorderingTasks" class="todo-panel__status">排序保存中</span>
         <button
           v-if="store.currentCategoryId"
-          :disabled="completedCount === 0"
+          :disabled="completedCount === 0 || taskStore.isClearingCompleted"
           class="todo-panel__clear-btn"
           title="清空已完成"
           @click="handleClearCompleted"
         >
-          清空已完成 ({{ completedCount }})
+          {{ taskStore.isClearingCompleted ? '删除中...' : `清空已完成 (${completedCount})` }}
         </button>
       </div>
     </header>
 
-    <!-- 输入 -->
     <TodoInput v-if="store.currentCategoryId" />
 
-    <!-- 列表 -->
     <div class="todo-panel__body">
-      <!-- 加载态 -->
       <div v-if="store.isLoading" class="todo-panel__loading">
         <div class="todo-panel__spinner">
           <div class="todo-panel__dot"></div>
@@ -81,7 +81,6 @@ const onDragEnd = () => {
         </div>
       </div>
       <template v-else>
-        <!-- 空态：未选择分类 -->
         <div v-if="!store.currentCategoryId" class="todo-panel__empty">
           <div class="todo-panel__empty-glow">
             <ClipboardList class="todo-panel__empty-svg" :size="32" />
@@ -89,7 +88,6 @@ const onDragEnd = () => {
           <div class="todo-panel__empty-title">请选择或创建一个分类</div>
           <div class="todo-panel__empty-hint">在左侧添加分类后即可开始管理待办</div>
         </div>
-        <!-- 空态：无任务 -->
         <div v-else-if="store.tasks.length === 0" class="todo-panel__empty">
           <div class="todo-panel__empty-glow todo-panel__empty-glow--spark">
             <Sparkles class="todo-panel__empty-svg" :size="32" />
@@ -98,7 +96,6 @@ const onDragEnd = () => {
           <div class="todo-panel__empty-hint">在上方输入框添加你的第一个待办吧</div>
         </div>
 
-        <!-- 可拖拽卡片列表 -->
         <draggable
           v-else
           v-model="draggableTasks"
@@ -107,7 +104,9 @@ const onDragEnd = () => {
           ghost-class="card--ghost"
           drag-class="card--dragging"
           :animation="200"
+          :disabled="taskStore.isReorderingTasks"
           class="todo-panel__cards"
+          @start="onDragStart"
           @end="onDragEnd"
         >
           <template #item="{ element }">
@@ -131,7 +130,6 @@ const onDragEnd = () => {
   overflow: hidden;
 }
 
-// ─── 顶栏 ──────────────────────────────────
 .todo-panel__header {
   display: flex;
   align-items: center;
@@ -174,6 +172,11 @@ const onDragEnd = () => {
   color: $text-muted;
 }
 
+.todo-panel__status {
+  font-size: $font-xs;
+  color: $text-muted;
+}
+
 .todo-panel__clear-btn {
   padding: $spacing-xs $spacing-md;
   background: transparent;
@@ -196,16 +199,13 @@ const onDragEnd = () => {
   }
 }
 
-// ─── 列表区域 — 浅蓝灰衬底 ──────────────────
 .todo-panel__body {
   flex: 1;
   overflow-y: auto;
-  // 预留滚动条槽位，避免出现/消失时内容宽度突变
   scrollbar-gutter: stable;
   background: $bg-deep;
 }
 
-// 卡片容器 — grid 间距
 .todo-panel__cards {
   display: flex;
   flex-direction: column;
@@ -213,7 +213,6 @@ const onDragEnd = () => {
   padding: 16px 20px 32px;
 }
 
-// ─── 空态（重新设计） ─────────────────────────
 .todo-panel__empty {
   display: flex;
   flex-direction: column;
@@ -224,7 +223,6 @@ const onDragEnd = () => {
   animation: empty-fade-in 0.5s ease;
 }
 
-// 图标发光容器
 .todo-panel__empty-glow {
   width: 72px;
   height: 72px;
@@ -238,7 +236,6 @@ const onDragEnd = () => {
   margin-bottom: $spacing-sm;
   transition: transform $transition-slow;
 
-  // Sparkles 变体 — 暖色调
   &--spark {
     background: linear-gradient(
       135deg,
@@ -276,7 +273,6 @@ const onDragEnd = () => {
   }
 }
 
-// ─── TransitionGroup 动画 — 卡片添加/删除/移动 ──
 .card-list-enter-active {
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -299,7 +295,6 @@ const onDragEnd = () => {
   transition: transform 0.3s ease;
 }
 
-// ─── 加载态 ────────────────────────────────
 .todo-panel__loading {
   display: flex;
   align-items: center;
@@ -322,6 +317,7 @@ const onDragEnd = () => {
   &:nth-child(2) {
     animation-delay: 0.15s;
   }
+
   &:nth-child(3) {
     animation-delay: 0.3s;
   }

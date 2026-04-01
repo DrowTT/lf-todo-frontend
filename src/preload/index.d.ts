@@ -94,7 +94,13 @@ type UpdateStatusData =
   | { status: 'checking' }
   | { status: 'available'; version: string; releaseNotes?: string }
   | { status: 'not-available' }
-  | { status: 'downloading'; percent: number; bytesPerSecond: number; transferred: number; total: number }
+  | {
+      status: 'downloading'
+      percent: number
+      bytesPerSecond: number
+      transferred: number
+      total: number
+    }
   | { status: 'downloaded'; version: string }
   | { status: 'error'; message: string }
 

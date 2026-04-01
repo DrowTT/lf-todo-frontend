@@ -1,50 +1,65 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Task } from '../db'
-import { store } from '../store'
 import { useConfirm } from '../composables/useConfirm'
-import { useInlineEdit } from '../composables/useInlineEdit'
 import { useHoverTarget } from '../composables/useHoverTarget'
-import SubTaskItem from './SubTaskItem.vue'
+import { useInlineEdit } from '../composables/useInlineEdit'
+import { useSubTaskStore } from '../store/subtask'
+import { useTaskStore } from '../store/task'
 import SubTaskInput from './SubTaskInput.vue'
+import SubTaskItem from './SubTaskItem.vue'
 import { Check, ChevronRight, GripVertical, Trash2 } from 'lucide-vue-next'
 
 const { confirm } = useConfirm()
 const { setHoverTask, clearHover } = useHoverTarget()
+const taskStore = useTaskStore()
+const subTaskStore = useSubTaskStore()
 
 const props = defineProps<{
   task: Task
 }>()
 
-// 是否已展开子任务
-const isExpanded = computed(() => store.expandedTaskIds.has(props.task.id))
+const isExpanded = computed(() => subTaskStore.expandedTaskIds.has(props.task.id))
+const subTasks = computed(() => subTaskStore.subTasksMap[props.task.id] ?? [])
+const isDeleting = computed(() => taskStore.isTaskDeleting(props.task.id))
+const isSaving = computed(() => taskStore.isTaskSaving(props.task.id))
+const isBusy = computed(() => taskStore.isTaskBusy(props.task.id))
 
-// 子任务列表
-const subTasks = computed(() => store.subTasksMap[props.task.id] ?? [])
-
-// 子任务进度：展开时从 subTasksMap 取实时数据，收起时从 SQL 统计字段取
 const subTaskProgress = computed(() => {
-  if (store.expandedTaskIds.has(props.task.id) && store.subTasksMap[props.task.id]) {
-    const list = store.subTasksMap[props.task.id]
-    if (list.length === 0) return null
-    const done = list.filter((t) => t.is_completed).length
-    const total = list.length
-    // 回写 SQL 缓存字段，确保收起后数据一致
-    props.task.subtask_done = done
-    props.task.subtask_total = total
-    return { done, total }
+  if (isExpanded.value && subTasks.value.length > 0) {
+    const done = subTasks.value.filter((subTask) => subTask.is_completed).length
+    return {
+      done,
+      total: subTasks.value.length
+    }
   }
-  const total = props.task.subtask_total
-  if (!total) return null
-  return { done: props.task.subtask_done, total }
+
+  if (!props.task.subtask_total) {
+    return null
+  }
+
+  return {
+    done: props.task.subtask_done,
+    total: props.task.subtask_total
+  }
 })
 
-const handleToggle = () => store.toggleTask(props.task.id)
-const handleToggleExpand = () => store.toggleExpand(props.task.id)
+const handleToggle = () => {
+  void taskStore.toggleTask(props.task.id, props.task.category_id)
+}
+
+const handleToggleExpand = () => {
+  void subTaskStore.toggleExpand(props.task.id, props.task.category_id)
+}
 
 const handleDelete = async () => {
   const ok = await confirm('确认删除该任务吗？')
-  if (ok) store.deleteTask(props.task.id)
+  if (ok) {
+    const deleted = await taskStore.deleteTask(props.task.id, props.task.category_id)
+    if (deleted) {
+      subTaskStore.removeTask(props.task.id, props.task.category_id)
+    }
+  }
 }
 
 const editInputRef = ref<HTMLTextAreaElement | null>(null)
@@ -52,40 +67,37 @@ const { isEditing, editContent, adjustHeight, handleDblClick, saveEdit, cancelEd
   useInlineEdit(
     editInputRef,
     () => props.task.content,
-    (content) => store.updateTaskContent(props.task.id, content)
+    (content) => {
+      void taskStore.updateTaskContent(props.task.id, content)
+    }
   )
 
-// 鼠标进入卡片时设置悬停目标
 const onCardMouseEnter = () => setHoverTask(props.task.id)
-// 鼠标离开卡片时清除悬停目标
 const onCardMouseLeave = () => clearHover()
 </script>
 
 <template>
   <div
     class="card"
-    :class="{ 'card--open': isExpanded, 'card--done': task.is_completed }"
+    :class="{ 'card--open': isExpanded, 'card--done': task.is_completed, 'card--busy': isBusy }"
     :data-task-id="task.id"
     @mouseenter="onCardMouseEnter"
     @mouseleave="onCardMouseLeave"
   >
-    <!-- 主行 -->
     <div class="card__row">
-      <!-- 拖拽手柄 -->
       <div class="card__drag-handle">
         <GripVertical :size="14" />
       </div>
 
-      <!-- 勾选框 -->
       <button
         class="card__check"
         :class="{ 'card__check--on': task.is_completed }"
+        :disabled="isBusy"
         @click="handleToggle"
       >
         <Check v-if="task.is_completed" class="card__check-svg" :size="12" />
       </button>
 
-      <!-- 内容 / 编辑 -->
       <textarea
         v-if="isEditing"
         ref="editInputRef"
@@ -100,27 +112,33 @@ const onCardMouseLeave = () => clearHover()
       />
       <div v-else class="card__text" @dblclick="handleDblClick">
         {{ task.content }}
-        <!-- 子任务进度 -->
         <span v-if="subTaskProgress" class="card__progress">
           {{ subTaskProgress.done }}/{{ subTaskProgress.total }}
         </span>
+        <span v-if="isSaving" class="card__status">保存中</span>
+        <span v-else-if="isDeleting" class="card__status card__status--danger">删除中</span>
       </div>
 
       <button
         class="card__action card__toggle"
         :class="{ 'card__toggle--on': isExpanded, 'card__action--hidden': isEditing }"
+        :disabled="isBusy"
         title="展开子任务"
         @click="handleToggleExpand"
       >
         <ChevronRight class="card__toggle-svg" :size="14" />
       </button>
 
-      <button class="card__action card__del" :class="{ 'card__action--hidden': isEditing }" @click="handleDelete">
+      <button
+        class="card__action card__del"
+        :class="{ 'card__action--hidden': isEditing }"
+        :disabled="isBusy"
+        @click="handleDelete"
+      >
         <Trash2 :size="14" />
       </button>
     </div>
 
-    <!-- 子任务区域 -->
     <Transition name="sub-slide">
       <div v-if="isExpanded" class="card__subs">
         <SubTaskItem v-for="sub in subTasks" :key="sub.id" :task="sub" :parent-id="task.id" />
@@ -133,7 +151,6 @@ const onCardMouseLeave = () => clearHover()
 <style scoped lang="scss">
 @use '../styles/variables' as *;
 
-// ─── 卡片容器 ──────────────────────────────
 .card {
   background: $bg-elevated;
   border: 1px solid $border-color;
@@ -150,7 +167,6 @@ const onCardMouseLeave = () => clearHover()
   cursor: default;
   position: relative;
 
-  // hover — 微妙上浮 + 边框调整
   &:hover {
     border-color: $border-light;
     transform: translateY(-1px);
@@ -159,7 +175,6 @@ const onCardMouseLeave = () => clearHover()
       0 8px 20px rgba(15, 23, 42, 0.06);
   }
 
-  // 展开态 — 蓝色光晕
   &--open {
     border-color: rgba($accent-color, 0.3);
     box-shadow:
@@ -172,7 +187,6 @@ const onCardMouseLeave = () => clearHover()
     }
   }
 
-  // 已完成态 — 柔化视觉
   &--done {
     opacity: 0.65;
     background: rgba($bg-elevated, 0.7);
@@ -181,9 +195,12 @@ const onCardMouseLeave = () => clearHover()
       opacity: 0.9;
     }
   }
+
+  &--busy {
+    opacity: 0.82;
+  }
 }
 
-// ─── 拖拽手柄 ──────────────────────────────
 .card__drag-handle {
   flex-shrink: 0;
   display: flex;
@@ -209,12 +226,10 @@ const onCardMouseLeave = () => clearHover()
   }
 }
 
-// 卡片 hover 时显示拖拽手柄
 .card:hover .card__drag-handle {
   opacity: 0.45;
 }
 
-// ─── 拖拽态 ─────────────────────────────────
 .card--dragging {
   opacity: 0.92;
   transform: rotate(1.5deg) scale(1.02);
@@ -232,7 +247,6 @@ const onCardMouseLeave = () => clearHover()
   }
 }
 
-// ─── 拖拽占位元素（SortableJS ghost） ──────
 .card--ghost {
   opacity: 0.35;
   transform: scale(0.98);
@@ -241,7 +255,6 @@ const onCardMouseLeave = () => clearHover()
   background: rgba($accent-color, 0.03);
 }
 
-// ─── 主行 ──────────────────────────────────
 .card__row {
   display: flex;
   align-items: flex-start;
@@ -256,7 +269,6 @@ const onCardMouseLeave = () => clearHover()
   }
 }
 
-// ─── 勾选框 ────────────────────────────────
 .card__check {
   flex-shrink: 0;
   width: 22px;
@@ -272,19 +284,23 @@ const onCardMouseLeave = () => clearHover()
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   padding: 0;
 
-  &:hover {
+  &:hover:not(:disabled) {
     border-color: $accent-color;
     background: $accent-soft;
     box-shadow: 0 0 0 4px rgba($accent-color, 0.08);
   }
 
-  // 勾选态 — 带微弹跳
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
   &--on {
     background: $accent-color;
     border-color: $accent-color;
     animation: check-bounce 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 
-    &:hover {
+    &:hover:not(:disabled) {
       background: $accent-hover;
       border-color: $accent-hover;
       box-shadow: 0 0 0 4px rgba($accent-color, 0.12);
@@ -308,7 +324,6 @@ const onCardMouseLeave = () => clearHover()
   color: #fff;
 }
 
-// ─── 文本 ──────────────────────────────────
 .card__text {
   flex: 1;
   font-size: $font-lg;
@@ -328,7 +343,6 @@ const onCardMouseLeave = () => clearHover()
   }
 }
 
-// 子任务进度 badge
 .card__progress {
   display: inline-flex;
   align-items: center;
@@ -344,7 +358,17 @@ const onCardMouseLeave = () => clearHover()
   margin-left: 6px;
 }
 
-// ─── 编辑态 ────────────────────────────────
+.card__status {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  font-size: $font-xs;
+  color: $text-muted;
+
+  &--danger {
+    color: $danger-color;
+  }
+}
 
 .card__edit-area {
   flex: 1;
@@ -366,7 +390,6 @@ const onCardMouseLeave = () => clearHover()
   font-family: inherit;
 }
 
-// ─── 操作按钮 ──────────────────────────────
 .card__action {
   flex-shrink: 0;
   opacity: 0;
@@ -378,7 +401,11 @@ const onCardMouseLeave = () => clearHover()
   transition: all 0.15s ease;
   border-radius: 6px;
 
-  // 编辑态隐藏但保留占位，防止行高坍缩
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+
   &--hidden {
     visibility: hidden;
     pointer-events: none;
@@ -391,7 +418,7 @@ const onCardMouseLeave = () => clearHover()
     color: $accent-color;
   }
 
-  &:hover {
+  &:hover:not(:disabled) {
     color: $accent-color;
     background: $accent-soft;
   }
@@ -407,13 +434,12 @@ const onCardMouseLeave = () => clearHover()
 }
 
 .card__del {
-  &:hover {
+  &:hover:not(:disabled) {
     color: $danger-color;
     background: rgba($danger-color, 0.08);
   }
 }
 
-// ─── 子任务展开区域 ────────────────────────
 .card__subs {
   margin: 0 12px 12px;
   padding: 8px 4px 4px 14px;
@@ -423,7 +449,6 @@ const onCardMouseLeave = () => clearHover()
   overflow: hidden;
 }
 
-// ─── 子任务滑入/滑出动画 ──────────────────
 .sub-slide-enter-active {
   transition: all 0.25s ease;
 }

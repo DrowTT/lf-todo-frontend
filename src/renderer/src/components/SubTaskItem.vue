@@ -1,25 +1,34 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { Task } from '../db'
-import { store } from '../store'
 import { useConfirm } from '../composables/useConfirm'
-import { useInlineEdit } from '../composables/useInlineEdit'
 import { useHoverTarget } from '../composables/useHoverTarget'
+import { useInlineEdit } from '../composables/useInlineEdit'
+import { useSubTaskStore } from '../store/subtask'
 import { Check, X } from 'lucide-vue-next'
 
 const { confirm } = useConfirm()
 const { setHoverSubTask, setHoverTask } = useHoverTarget()
+const subTaskStore = useSubTaskStore()
 
 const props = defineProps<{
   task: Task
   parentId: number
 }>()
 
-const handleToggle = () => store.toggleSubTask(props.task.id, props.parentId)
+const isDeleting = computed(() => subTaskStore.isSubTaskDeleting(props.task.id))
+const isSaving = computed(() => subTaskStore.isSubTaskSaving(props.task.id))
+const isBusy = computed(() => subTaskStore.isSubTaskBusy(props.task.id))
+
+const handleToggle = () => {
+  void subTaskStore.toggleSubTask(props.task.id, props.parentId)
+}
 
 const handleDelete = async () => {
   const ok = await confirm('确认删除该子任务吗？')
-  if (ok) store.deleteSubTask(props.task.id, props.parentId)
+  if (ok) {
+    await subTaskStore.deleteSubTask(props.task.id, props.parentId)
+  }
 }
 
 const editInputRef = ref<HTMLTextAreaElement | null>(null)
@@ -27,34 +36,33 @@ const { isEditing, editContent, adjustHeight, handleDblClick, saveEdit, cancelEd
   useInlineEdit(
     editInputRef,
     () => props.task.content,
-    (content) => store.updateSubTaskContent(props.task.id, props.parentId, content)
+    (content) => {
+      void subTaskStore.updateSubTaskContent(props.task.id, props.parentId, content)
+    }
   )
 
-// 鼠标进入子待办时设置悬停目标
 const onSubMouseEnter = () => setHoverSubTask(props.task.id, props.parentId)
-// 鼠标离开子待办时回退到父级任务（不清空，因为仍在 card 内）
 const onSubMouseLeave = () => setHoverTask(props.parentId)
 </script>
 
 <template>
   <div
     class="sub"
-    :class="{ 'sub--done': task.is_completed }"
+    :class="{ 'sub--done': task.is_completed, 'sub--busy': isBusy }"
     :data-subtask-id="task.id"
     :data-parent-id="parentId"
     @mouseenter="onSubMouseEnter"
     @mouseleave="onSubMouseLeave"
   >
-    <!-- 勾选框 -->
     <button
       class="sub__check"
       :class="{ 'sub__check--on': task.is_completed }"
+      :disabled="isBusy"
       @click="handleToggle"
     >
       <Check v-if="task.is_completed" class="sub__check-svg" :size="9" />
     </button>
 
-    <!-- 内容 / 编辑 -->
     <textarea
       v-if="isEditing"
       ref="editInputRef"
@@ -67,10 +75,18 @@ const onSubMouseLeave = () => setHoverTask(props.parentId)
       @blur="onBlur"
       @input="adjustHeight"
     />
-    <div v-else class="sub__text" @dblclick="handleDblClick">{{ task.content }}</div>
+    <div v-else class="sub__text" @dblclick="handleDblClick">
+      {{ task.content }}
+      <span v-if="isSaving" class="sub__status">保存中</span>
+      <span v-else-if="isDeleting" class="sub__status sub__status--danger">删除中</span>
+    </div>
 
-    <!-- 删除 -->
-    <button class="sub__del" :class="{ 'sub__del--hidden': isEditing }" @click="handleDelete">
+    <button
+      class="sub__del"
+      :class="{ 'sub__del--hidden': isEditing }"
+      :disabled="isBusy"
+      @click="handleDelete"
+    >
       <X :size="11" />
     </button>
   </div>
@@ -106,7 +122,7 @@ const onSubMouseLeave = () => setHoverTask(props.parentId)
       background: $text-muted;
       border-color: $text-muted;
 
-      &:hover {
+      &:hover:not(:disabled) {
         background: $text-secondary;
         border-color: $text-secondary;
       }
@@ -116,9 +132,12 @@ const onSubMouseLeave = () => setHoverTask(props.parentId)
       color: #fff;
     }
   }
+
+  &--busy {
+    opacity: 0.82;
+  }
 }
 
-// ─── 勾选框（小号） ───────────────────────
 .sub__check {
   flex-shrink: 0;
   width: 16px;
@@ -134,8 +153,13 @@ const onSubMouseLeave = () => setHoverTask(props.parentId)
   transition: all 0.15s ease;
   padding: 0;
 
-  &:hover {
+  &:hover:not(:disabled) {
     border-color: $accent-color;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
   }
 
   &--on {
@@ -148,7 +172,6 @@ const onSubMouseLeave = () => setHoverTask(props.parentId)
   color: #fff;
 }
 
-// ─── 文本 ──────────────────────────────────
 .sub__text {
   flex: 1;
   font-size: $font-sm;
@@ -160,7 +183,15 @@ const onSubMouseLeave = () => setHoverTask(props.parentId)
   cursor: text;
 }
 
-// ─── 编辑 ──────────────────────────────────
+.sub__status {
+  margin-left: 8px;
+  font-size: $font-xs;
+  color: $text-muted;
+
+  &--danger {
+    color: $danger-color;
+  }
+}
 
 .sub__edit-area {
   flex: 1;
@@ -181,7 +212,6 @@ const onSubMouseLeave = () => setHoverTask(props.parentId)
   font-family: inherit;
 }
 
-// ─── 删除 ──────────────────────────────────
 .sub__del {
   flex-shrink: 0;
   opacity: 0;
@@ -193,12 +223,16 @@ const onSubMouseLeave = () => setHoverTask(props.parentId)
   transition: all 0.15s ease;
   border-radius: 4px;
 
-  &:hover {
+  &:hover:not(:disabled) {
     color: $danger-color;
     background: rgba($danger-color, 0.08);
   }
 
-  // 编辑态隐藏但保留占位，防止行高坍缩
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+
   &--hidden {
     visibility: hidden;
     pointer-events: none;
