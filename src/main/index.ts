@@ -1,4 +1,5 @@
-import { app, shell, BrowserWindow, ipcMain, Tray, Menu, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Tray, Menu, dialog, screen } from 'electron'
+import type { Display, Rectangle } from 'electron'
 import { appendFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -19,6 +20,7 @@ interface StoreType {
     height: number
     x: number
     y: number
+    displayId?: number
   }
   alwaysOnTop: boolean
   autoLaunch: boolean
@@ -27,10 +29,138 @@ interface StoreType {
 }
 
 const store = new Store<StoreType>()
+const DEFAULT_WINDOW_SIZE = { width: 900, height: 670 }
+const MIN_WINDOW_SIZE = { width: 400, height: 500 }
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let settingsHandlersRegistered = false
+
+function getScaledMinWindowSize(display: Display): Pick<Rectangle, 'width' | 'height'> {
+  const scaleFactor = display.scaleFactor > 0 ? display.scaleFactor : 1
+
+  return {
+    width: Math.max(1, Math.round(MIN_WINDOW_SIZE.width / scaleFactor)),
+    height: Math.max(1, Math.round(MIN_WINDOW_SIZE.height / scaleFactor))
+  }
+}
+
+function clampWindowSizeForDisplay(
+  size: Pick<Rectangle, 'width' | 'height'>,
+  display: Display
+): Pick<Rectangle, 'width' | 'height'> {
+  const minWindowSize = getScaledMinWindowSize(display)
+
+  return {
+    width: Math.max(minWindowSize.width, Math.min(Math.round(size.width), display.workArea.width)),
+    height: Math.max(minWindowSize.height, Math.min(Math.round(size.height), display.workArea.height))
+  }
+}
+
+function clampWindowPosition(
+  bounds: Pick<Rectangle, 'x' | 'y' | 'width' | 'height'>,
+  workArea: Rectangle
+): Pick<Rectangle, 'x' | 'y'> {
+  const maxX = workArea.x + Math.max(0, workArea.width - bounds.width)
+  const maxY = workArea.y + Math.max(0, workArea.height - bounds.height)
+
+  return {
+    x: Math.min(Math.max(Math.round(bounds.x), workArea.x), maxX),
+    y: Math.min(Math.max(Math.round(bounds.y), workArea.y), maxY)
+  }
+}
+
+function centerWindowPosition(
+  size: Pick<Rectangle, 'width' | 'height'>,
+  workArea: Rectangle
+): Pick<Rectangle, 'x' | 'y'> {
+  return {
+    x: Math.round(workArea.x + (workArea.width - size.width) / 2),
+    y: Math.round(workArea.y + (workArea.height - size.height) / 2)
+  }
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function resolveDisplayForSavedBounds(
+  savedBounds: StoreType['windowBounds']
+): { display: Display; isSameDisplay: boolean } {
+  if (isFiniteNumber(savedBounds.displayId)) {
+    const matchedDisplay = screen.getAllDisplays().find((display) => display.id === savedBounds.displayId)
+    if (matchedDisplay) {
+      return { display: matchedDisplay, isSameDisplay: true }
+    }
+  }
+
+  if (isFiniteNumber(savedBounds.x) && isFiniteNumber(savedBounds.y)) {
+    return {
+      display: screen.getDisplayNearestPoint({ x: Math.round(savedBounds.x), y: Math.round(savedBounds.y) }),
+      isSameDisplay: false
+    }
+  }
+
+  return { display: screen.getPrimaryDisplay(), isSameDisplay: false }
+}
+
+function resolveInitialWindowBounds(): Rectangle {
+  const savedBounds = store.get('windowBounds')
+  if (
+    !savedBounds ||
+    !isFiniteNumber(savedBounds.width) ||
+    !isFiniteNumber(savedBounds.height) ||
+    !isFiniteNumber(savedBounds.x) ||
+    !isFiniteNumber(savedBounds.y)
+  ) {
+    return {
+      ...DEFAULT_WINDOW_SIZE,
+      ...centerWindowPosition(DEFAULT_WINDOW_SIZE, screen.getPrimaryDisplay().workArea)
+    }
+  }
+
+  const { display, isSameDisplay } = resolveDisplayForSavedBounds(savedBounds)
+  const restoredDipBounds = savedBounds
+  const scaledSize = clampWindowSizeForDisplay(
+    {
+      width: restoredDipBounds.width,
+      height: restoredDipBounds.height
+    },
+    display
+  )
+  const position = isSameDisplay
+    ? clampWindowPosition(
+        {
+          x: restoredDipBounds.x,
+          y: restoredDipBounds.y,
+          ...scaledSize
+        },
+        display.workArea
+      )
+    : centerWindowPosition(scaledSize, display.workArea)
+
+  return {
+    ...scaledSize,
+    ...position
+  }
+}
+
+function persistWindowBounds(win: BrowserWindow): void {
+  if (win.isDestroyed()) return
+
+  const bounds = win.getNormalBounds()
+  const display = screen.getDisplayMatching(bounds)
+  const widthScaleFactor = display.scaleFactor > 0 ? display.scaleFactor : 1
+  const persistedBounds = {
+    x: bounds.x,
+    y: bounds.y,
+    width: Math.round(bounds.width / widthScaleFactor),
+    height: Math.round(bounds.height / widthScaleFactor),
+    displayId: display.id
+  }
+
+  store.set('windowBounds', persistedBounds)
+}
 
 function isHiddenLaunch(): boolean {
   return process.argv.includes('--hidden')
@@ -227,16 +357,18 @@ function createTray(win: BrowserWindow, setQuitting: () => void): void {
 }
 
 function createWindow(): void {
-  const bounds = store.get('windowBounds')
+  const bounds = resolveInitialWindowBounds()
   const launchedHidden = isHiddenLaunch()
+  const targetDisplay = screen.getDisplayMatching(bounds)
+  const minWindowSize = getScaledMinWindowSize(targetDisplay)
 
   const win = new BrowserWindow({
-    width: bounds?.width || 900,
-    height: bounds?.height || 670,
-    x: bounds?.x,
-    y: bounds?.y,
-    minWidth: 400,
-    minHeight: 500,
+    width: bounds.width,
+    height: bounds.height,
+    x: bounds.x,
+    y: bounds.y,
+    minWidth: minWindowSize.width,
+    minHeight: minWindowSize.height,
     show: false,
     frame: false,
     autoHideMenuBar: true,
@@ -265,7 +397,7 @@ function createWindow(): void {
     initAutoUpdater(win)
 
     if (is.dev) {
-      win.webContents.openDevTools()
+      win.webContents.openDevTools({ mode: 'detach' })
     }
   })
 
@@ -280,9 +412,7 @@ function createWindow(): void {
   })
 
   win.on('close', (event) => {
-    if (!win.isDestroyed()) {
-      store.set('windowBounds', win.getBounds())
-    }
+    persistWindowBounds(win)
 
     const closeToTray = store.get('closeToTray', true)
     if (!isQuitting && closeToTray && tray) {
@@ -296,9 +426,7 @@ function createWindow(): void {
   })
 
   ipcMain.on('window:close', () => {
-    if (!win.isDestroyed()) {
-      store.set('windowBounds', win.getBounds())
-    }
+    persistWindowBounds(win)
 
     const closeToTray = store.get('closeToTray', true)
     if (closeToTray && tray) {

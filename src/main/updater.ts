@@ -4,6 +4,8 @@ import { is } from '@electron-toolkit/utils'
 import { parseUpdateStatusData } from '../shared/contracts/entities'
 import { parseNoPayloadRequest } from '../shared/contracts/updater'
 
+let updaterHandlersRegistered = false
+
 export function initAutoUpdater(win: BrowserWindow): void {
   if (is.dev) {
     registerIpcHandlers(win)
@@ -73,6 +75,9 @@ function sendStatus(win: BrowserWindow, data: Record<string, unknown>): void {
 }
 
 function registerIpcHandlers(win: BrowserWindow): void {
+  if (updaterHandlersRegistered) return
+  updaterHandlersRegistered = true
+
   ipcMain.handle('updater:check', async (_event, payload: unknown) => {
     parseNoPayloadRequest(payload, 'updater:check.request')
 
