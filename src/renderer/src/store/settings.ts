@@ -1,6 +1,12 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { AppInfo, AutoCleanupConfig, SettingsData } from '../../../shared/types/models'
+import type {
+  AppInfo,
+  AutoCleanupConfig,
+  PomodoroData,
+  PomodoroSessionState,
+  SettingsData
+} from '../../../shared/types/models'
 import { useAppRuntime } from '../app/runtime'
 
 const defaultSettings = (): SettingsData => ({
@@ -9,6 +15,12 @@ const defaultSettings = (): SettingsData => ({
   autoCleanup: {
     enabled: false,
     days: 7
+  },
+  pomodoro: {
+    focusDurationSeconds: 25 * 60,
+    totalCompletedCount: 0,
+    activeSession: null,
+    history: []
   }
 })
 
@@ -31,6 +43,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const isSavingAutoLaunch = ref(false)
   const isSavingCloseToTray = ref(false)
   const isSavingAutoCleanup = ref(false)
+  const isSavingPomodoro = ref(false)
   const error = ref('')
   const loadError = ref('')
   const lastSyncedAt = ref<number | null>(null)
@@ -163,6 +176,97 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
+  async function setPomodoroActiveSession(session: PomodoroSessionState | null) {
+    const previous = settings.value.pomodoro.activeSession
+    settings.value = {
+      ...settings.value,
+      pomodoro: {
+        ...settings.value.pomodoro,
+        activeSession: session
+      }
+    }
+
+    if (!repository.isAvailable) {
+      return session
+    }
+
+    isSavingPomodoro.value = true
+
+    try {
+      const nextSession = await repository.setPomodoroActiveSession(session)
+      settings.value = {
+        ...settings.value,
+        pomodoro: {
+          ...settings.value.pomodoro,
+          activeSession: nextSession
+        }
+      }
+      markSynced()
+      return nextSession
+    } catch (err) {
+      settings.value = {
+        ...settings.value,
+        pomodoro: {
+          ...settings.value.pomodoro,
+          activeSession: previous
+        }
+      }
+      error.value = '保存番茄钟状态失败，请重试'
+      runtime.toast.show(error.value)
+      throw err
+    } finally {
+      isSavingPomodoro.value = false
+    }
+  }
+
+  async function completePomodoroSession(session: PomodoroSessionState): Promise<PomodoroData> {
+    const previous = settings.value.pomodoro
+
+    if (!repository.isAvailable) {
+      const completedAt = Date.now()
+      const nextPomodoro: PomodoroData = {
+        ...previous,
+        totalCompletedCount: previous.totalCompletedCount + 1,
+        activeSession: null,
+        history: [
+          ...previous.history,
+          {
+            id: `${completedAt}-fallback`,
+            completedAt,
+            durationSeconds: session.durationSeconds,
+            source: session.source,
+            taskId: session.taskId,
+            taskContentSnapshot: session.taskContentSnapshot
+          }
+        ]
+      }
+
+      settings.value = { ...settings.value, pomodoro: nextPomodoro }
+      return nextPomodoro
+    }
+
+    isSavingPomodoro.value = true
+
+    try {
+      const nextPomodoro = await repository.completePomodoroSession(session)
+      settings.value = { ...settings.value, pomodoro: nextPomodoro }
+      markSynced()
+      return nextPomodoro
+    } catch (err) {
+      settings.value = { ...settings.value, pomodoro: previous }
+      error.value = '记录番茄钟失败，请重试'
+      runtime.toast.show(error.value)
+      throw err
+    } finally {
+      isSavingPomodoro.value = false
+    }
+  }
+
+  async function notifyPomodoroCompleted() {
+    if (!repository.isAvailable) return
+    await repository.notifyPomodoroCompleted()
+  }
+
   return {
     isAvailable: repository.isAvailable,
     settings,
@@ -172,6 +276,7 @@ export const useSettingsStore = defineStore('settings', () => {
     isSavingAutoLaunch,
     isSavingCloseToTray,
     isSavingAutoCleanup,
+    isSavingPomodoro,
     error,
     loadError,
     lastSyncedAt,
@@ -181,6 +286,9 @@ export const useSettingsStore = defineStore('settings', () => {
     setAutoLaunch,
     setCloseToTray,
     setAutoCleanup,
+    setPomodoroActiveSession,
+    completePomodoroSession,
+    notifyPomodoroCompleted,
     exportData
   }
 })

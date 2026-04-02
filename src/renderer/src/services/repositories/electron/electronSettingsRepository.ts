@@ -1,6 +1,8 @@
 import {
   parseAppInfo,
   parseAutoCleanupConfig,
+  parsePomodoroData,
+  parsePomodoroSessionState,
   parseSettingsData,
   parseUpdateStatusData
 } from '../../../../../shared/contracts/entities'
@@ -20,7 +22,13 @@ export function createElectronSettingsRepository(
           {
             autoLaunch: false,
             closeToTray: true,
-            autoCleanup: { enabled: false, days: 7 }
+            autoCleanup: { enabled: false, days: 7 },
+            pomodoro: {
+              focusDurationSeconds: 1500,
+              totalCompletedCount: 0,
+              activeSession: null,
+              history: []
+            }
           },
           'settings:fallback'
         )
@@ -33,6 +41,22 @@ export function createElectronSettingsRepository(
       },
       async setAutoCleanup(config) {
         return parseAutoCleanupConfig(config, 'settings:set-auto-cleanup.fallback')
+      },
+      async setPomodoroActiveSession(session) {
+        return session
+          ? parsePomodoroSessionState(session, 'settings:set-pomodoro-session.fallback')
+          : null
+      },
+      async completePomodoroSession() {
+        return parsePomodoroData(
+          {
+            focusDurationSeconds: 1500,
+            totalCompletedCount: 0,
+            activeSession: null,
+            history: []
+          },
+          'settings:complete-pomodoro-session.fallback'
+        )
       },
       async exportData() {
         return false
@@ -48,6 +72,9 @@ export function createElectronSettingsRepository(
           },
           'settings:get-app-info.fallback'
         )
+      },
+      async notifyPomodoroCompleted() {
+        return undefined
       }
     }
   }
@@ -69,11 +96,26 @@ export function createElectronSettingsRepository(
         'settings:set-auto-cleanup.response'
       )
     },
+    async setPomodoroActiveSession(session) {
+      const response = await api.settings.setPomodoroActiveSession(session)
+      return response === null
+        ? null
+        : parsePomodoroSessionState(response, 'settings:set-pomodoro-session.response')
+    },
+    async completePomodoroSession(session) {
+      return parsePomodoroData(
+        await api.settings.completePomodoroSession(session),
+        'settings:complete-pomodoro-session.response'
+      )
+    },
     async exportData() {
       return await api.settings.exportData()
     },
     async getAppInfo() {
       return parseAppInfo(await api.settings.getAppInfo(), 'settings:get-app-info.response')
+    },
+    async notifyPomodoroCompleted() {
+      await api.settings.notifyPomodoroCompleted()
     }
   }
 }

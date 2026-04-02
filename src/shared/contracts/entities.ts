@@ -2,6 +2,9 @@ import type {
   AppInfo,
   AutoCleanupConfig,
   Category,
+  PomodoroData,
+  PomodoroRecord,
+  PomodoroSessionState,
   SettingsData,
   Task,
   UpdateStatusData
@@ -103,14 +106,118 @@ export function parseAutoCleanupConfig(value: unknown, label = 'autoCleanup'): A
   }
 }
 
+export function parsePomodoroTaskBinding(
+  value: unknown,
+  label: string
+): Pick<PomodoroSessionState, 'taskId' | 'taskContentSnapshot'> {
+  const record = expectRecord(value, label)
+  assertAllowedKeys(record, ['taskId', 'taskContentSnapshot'], label)
+
+  return parsePomodoroTaskBindingRecord(record, label)
+}
+
+function parsePomodoroTaskBindingRecord(
+  record: Record<string, unknown>,
+  label: string
+): Pick<PomodoroSessionState, 'taskId' | 'taskContentSnapshot'> {
+  return {
+    taskId:
+      record.taskId === null ? null : expectInteger(record.taskId, `${label}.taskId`, { min: 1 }),
+    taskContentSnapshot:
+      record.taskContentSnapshot === null
+        ? null
+        : expectString(record.taskContentSnapshot, `${label}.taskContentSnapshot`, {
+            trim: true,
+            minLength: 1,
+            maxLength: 200
+          })
+  }
+}
+
+export function parsePomodoroSessionState(
+  value: unknown,
+  label = 'pomodoroSessionState'
+): PomodoroSessionState {
+  const record = expectRecord(value, label)
+  assertAllowedKeys(
+    record,
+    ['startedAt', 'endsAt', 'durationSeconds', 'source', 'taskId', 'taskContentSnapshot'],
+    label
+  )
+
+  return {
+    startedAt: expectInteger(record.startedAt, `${label}.startedAt`, { min: 0 }),
+    endsAt: expectInteger(record.endsAt, `${label}.endsAt`, { min: 0 }),
+    durationSeconds: expectInteger(record.durationSeconds, `${label}.durationSeconds`, {
+      min: 1,
+      max: 86400
+    }),
+    source: expectString(record.source, `${label}.source`, { trim: true, minLength: 1 }) as
+      | 'global'
+      | 'task',
+    ...parsePomodoroTaskBindingRecord(record, label)
+  }
+}
+
+export function parsePomodoroRecord(value: unknown, label = 'pomodoroRecord'): PomodoroRecord {
+  const record = expectRecord(value, label)
+  assertAllowedKeys(
+    record,
+    ['id', 'completedAt', 'durationSeconds', 'source', 'taskId', 'taskContentSnapshot'],
+    label
+  )
+
+  return {
+    id: expectString(record.id, `${label}.id`, { trim: true, minLength: 1, maxLength: 128 }),
+    completedAt: expectInteger(record.completedAt, `${label}.completedAt`, { min: 0 }),
+    durationSeconds: expectInteger(record.durationSeconds, `${label}.durationSeconds`, {
+      min: 1,
+      max: 86400
+    }),
+    source: expectString(record.source, `${label}.source`, { trim: true, minLength: 1 }) as
+      | 'global'
+      | 'task',
+    ...parsePomodoroTaskBindingRecord(record, label)
+  }
+}
+
+export function parsePomodoroData(value: unknown, label = 'pomodoro'): PomodoroData {
+  const record = expectRecord(value, label)
+  assertAllowedKeys(
+    record,
+    ['focusDurationSeconds', 'totalCompletedCount', 'activeSession', 'history'],
+    label
+  )
+
+  return {
+    focusDurationSeconds: expectInteger(
+      record.focusDurationSeconds,
+      `${label}.focusDurationSeconds`,
+      {
+        min: 1,
+        max: 86400
+      }
+    ),
+    totalCompletedCount: expectInteger(record.totalCompletedCount, `${label}.totalCompletedCount`, {
+      min: 0
+    }),
+    activeSession:
+      record.activeSession === null
+        ? null
+        : parsePomodoroSessionState(record.activeSession, `${label}.activeSession`),
+    history: expectArray(record.history, `${label}.history`, parsePomodoroRecord)
+  }
+}
+
 export function parseSettingsData(value: unknown, label = 'settings'): SettingsData {
   const record = expectRecord(value, label)
-  assertAllowedKeys(record, ['autoLaunch', 'closeToTray', 'autoCleanup'], label)
+  assertAllowedKeys(record, ['autoLaunch', 'closeToTray', 'autoCleanup', 'pomodoro'], label)
 
   return {
     autoLaunch: expectBoolean(record.autoLaunch, `${label}.autoLaunch`),
     closeToTray: expectBoolean(record.closeToTray, `${label}.closeToTray`),
-    autoCleanup: parseAutoCleanupConfig(record.autoCleanup, `${label}.autoCleanup`)
+    autoCleanup: parseAutoCleanupConfig(record.autoCleanup, `${label}.autoCleanup`),
+    pomodoro: parsePomodoroData(record.pomodoro, `${label}.pomodoro`)
   }
 }
 

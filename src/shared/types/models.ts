@@ -24,10 +24,37 @@ export interface AutoCleanupConfig {
   days: number
 }
 
+export interface PomodoroTaskBinding {
+  taskId: number | null
+  taskContentSnapshot: string | null
+}
+
+export interface PomodoroSessionState extends PomodoroTaskBinding {
+  startedAt: number
+  endsAt: number
+  durationSeconds: number
+  source: 'global' | 'task'
+}
+
+export interface PomodoroRecord extends PomodoroTaskBinding {
+  id: string
+  completedAt: number
+  durationSeconds: number
+  source: 'global' | 'task'
+}
+
+export interface PomodoroData {
+  focusDurationSeconds: number
+  totalCompletedCount: number
+  activeSession: PomodoroSessionState | null
+  history: PomodoroRecord[]
+}
+
 export interface SettingsData {
   autoLaunch: boolean
   closeToTray: boolean
   autoCleanup: AutoCleanupConfig
+  pomodoro: PomodoroData
 }
 
 export interface AppInfo {

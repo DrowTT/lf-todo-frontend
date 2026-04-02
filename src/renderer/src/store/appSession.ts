@@ -4,6 +4,7 @@ import { readStoredJson, writeStoredJson } from '../utils/localStorage'
 
 interface SessionSnapshot {
   settingsPanelOpen: boolean
+  currentMainView: 'tasks' | 'pomodoro'
   taskDrafts: Record<string, string>
   subTaskDrafts: Record<string, string>
 }
@@ -15,6 +16,7 @@ function loadSnapshot(): SessionSnapshot {
 
   return {
     settingsPanelOpen: parsed.settingsPanelOpen ?? false,
+    currentMainView: parsed.currentMainView === 'pomodoro' ? 'pomodoro' : 'tasks',
     taskDrafts: parsed.taskDrafts ?? {},
     subTaskDrafts: parsed.subTaskDrafts ?? {}
   }
@@ -23,6 +25,7 @@ function loadSnapshot(): SessionSnapshot {
 export const useAppSessionStore = defineStore('appSession', () => {
   const hydrated = ref(false)
   const settingsPanelOpen = ref(false)
+  const currentMainView = ref<'tasks' | 'pomodoro'>('tasks')
   const taskDrafts = ref<Record<string, string>>({})
   const subTaskDrafts = ref<Record<string, string>>({})
 
@@ -35,6 +38,7 @@ export const useAppSessionStore = defineStore('appSession', () => {
   function persist() {
     const snapshot: SessionSnapshot = {
       settingsPanelOpen: settingsPanelOpen.value,
+      currentMainView: currentMainView.value,
       taskDrafts: taskDrafts.value,
       subTaskDrafts: subTaskDrafts.value
     }
@@ -46,6 +50,7 @@ export const useAppSessionStore = defineStore('appSession', () => {
 
     const snapshot = loadSnapshot()
     settingsPanelOpen.value = snapshot.settingsPanelOpen
+    currentMainView.value = snapshot.currentMainView
     taskDrafts.value = snapshot.taskDrafts
     subTaskDrafts.value = snapshot.subTaskDrafts
     hydrated.value = true
@@ -53,6 +58,11 @@ export const useAppSessionStore = defineStore('appSession', () => {
 
   function setSettingsPanelOpen(open: boolean) {
     settingsPanelOpen.value = open
+    persist()
+  }
+
+  function setCurrentMainView(view: 'tasks' | 'pomodoro') {
+    currentMainView.value = view
     persist()
   }
 
@@ -104,11 +114,13 @@ export const useAppSessionStore = defineStore('appSession', () => {
   return {
     hydrated,
     settingsPanelOpen,
+    currentMainView,
     taskDrafts,
     subTaskDrafts,
     hasDrafts,
     hydrate,
     setSettingsPanelOpen,
+    setCurrentMainView,
     getTaskDraft,
     setTaskDraft,
     clearTaskDraft,

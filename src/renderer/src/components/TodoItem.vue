@@ -2,18 +2,24 @@
 import { computed, ref } from 'vue'
 import type { Task } from '../../../shared/types/models'
 import { useAppFacade } from '../app/facade/useAppFacade'
+// lucide-vue-next 中无专用番茄图标，改用 Timer 代替 Clock3 以区分
 import { useAppRuntime } from '../app/runtime'
 import { useHoverTarget } from '../composables/useHoverTarget'
 import { useInlineEdit } from '../composables/useInlineEdit'
+import { useAppSessionStore } from '../store/appSession'
+import { usePomodoroStore } from '../store/pomodoro'
 import { useSubTaskStore } from '../store/subtask'
 import { useTaskStore } from '../store/task'
 import SubTaskInput from './SubTaskInput.vue'
 import SubTaskItem from './SubTaskItem.vue'
-import { Check, ChevronRight, GripVertical, Trash2 } from 'lucide-vue-next'
+import { Check, ChevronRight, GripVertical, Play, Timer, Trash2 } from 'lucide-vue-next'
 
 const app = useAppFacade()
-const { confirm } = useAppRuntime().confirm
+const runtime = useAppRuntime()
+const { confirm } = runtime.confirm
 const { setHoverTask, clearHover } = useHoverTarget()
+const appSessionStore = useAppSessionStore()
+const pomodoroStore = usePomodoroStore()
 const taskStore = useTaskStore()
 const subTaskStore = useSubTaskStore()
 
@@ -26,6 +32,11 @@ const subTasks = computed(() => subTaskStore.subTasksMap[props.task.id] ?? [])
 const isDeleting = computed(() => taskStore.isTaskDeleting(props.task.id))
 const isSaving = computed(() => taskStore.isTaskSaving(props.task.id))
 const isBusy = computed(() => taskStore.isTaskBusy(props.task.id))
+const pomodoroCount = computed(() => pomodoroStore.getTaskPomodoroCount(props.task.id))
+const isPomodoroRunningForTask = computed(
+  () => pomodoroStore.activeSession?.taskId === props.task.id
+)
+const isPomodoroBusy = computed(() => pomodoroStore.isBusy)
 
 const subTaskProgress = computed(() => {
   if (isExpanded.value && subTasks.value.length > 0) {
@@ -58,6 +69,18 @@ const handleDelete = async () => {
   const ok = await confirm('确认删除该任务吗？')
   if (ok) {
     await app.deleteTask(props.task.id)
+  }
+}
+
+const handleStartPomodoro = async () => {
+  if (typeof pomodoroStore.startForTask !== 'function') {
+    runtime.toast.show('番茄钟模块已更新，请刷新页面后重试。', 'info')
+    return
+  }
+
+  const started = await pomodoroStore.startForTask(props.task)
+  if (started) {
+    appSessionStore.setCurrentMainView('pomodoro')
   }
 }
 
@@ -118,6 +141,28 @@ const onCardMouseLeave = () => clearHover()
         <span v-else-if="isDeleting" class="card__status card__status--danger">删除中</span>
       </div>
 
+      <span
+        v-if="pomodoroCount > 0"
+        class="card__pomodoro-badge"
+        :title="`已完成 ${pomodoroCount} 个番茄`"
+      >
+        <Timer class="card__pomodoro-badge-icon" :size="11" />
+        <span>{{ pomodoroCount }}</span>
+      </span>
+
+      <button
+        class="card__pomodoro-btn"
+        :class="{
+          'card__pomodoro-btn--active': isPomodoroRunningForTask,
+          'card__pomodoro-btn--hidden': isEditing
+        }"
+        :disabled="isBusy || isPomodoroBusy"
+        :title="isPomodoroRunningForTask ? '该待办番茄钟进行中' : '开始番茄钟'"
+        @click="handleStartPomodoro"
+      >
+        <Play :size="12" />
+      </button>
+
       <button
         class="card__action card__toggle"
         :class="{ 'card__toggle--on': isExpanded, 'card__action--hidden': isEditing }"
@@ -168,7 +213,6 @@ const onCardMouseLeave = () => clearHover()
 
   &:hover {
     border-color: $border-light;
-    transform: translateY(-1px);
     box-shadow:
       0 2px 6px rgba(15, 23, 42, 0.08),
       0 8px 20px rgba(15, 23, 42, 0.06);
@@ -357,6 +401,26 @@ const onCardMouseLeave = () => clearHover()
   margin-left: 6px;
 }
 
+/* 番茄计数徽章 — 使用橙红色，与子任务进度的蓝色 pill 明确区分 */
+.card__pomodoro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: $font-xs;
+  font-weight: 600;
+  color: #ea580c;
+  background: rgba(249, 115, 22, 0.08);
+  border-radius: 100px;
+  padding: 2px 8px;
+  letter-spacing: 0.3px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.card__pomodoro-badge-icon {
+  color: inherit;
+}
+
 .card__status {
   display: inline-flex;
   align-items: center;
@@ -420,6 +484,67 @@ const onCardMouseLeave = () => clearHover()
   &:hover:not(:disabled) {
     color: $accent-color;
     background: $accent-soft;
+  }
+}
+
+/* 番茄钟播放按钮 — 微型圆形强调按钮，始终微可见 */
+.card__pomodoro-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba($accent-color, 0.06);
+  color: $text-muted;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+
+  .card:hover & {
+    opacity: 0.6;
+  }
+
+  &:hover:not(:disabled) {
+    opacity: 1 !important;
+    color: $accent-color;
+    background: $accent-soft;
+    transform: scale(1.1);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.3;
+  }
+
+  /* 运行态 — 显示脉冲光圈 */
+  &--active {
+    opacity: 1 !important;
+    color: $success-color;
+    background: rgba($success-color, 0.1);
+    animation: pomo-pulse 2s ease-in-out infinite;
+
+    &:hover:not(:disabled) {
+      color: $success-color;
+      background: rgba($success-color, 0.15);
+    }
+  }
+
+  &--hidden {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+@keyframes pomo-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba($success-color, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba($success-color, 0);
   }
 }
 

@@ -1,6 +1,8 @@
 import type {
   AppInfo,
   AutoCleanupConfig,
+  PomodoroData,
+  PomodoroSessionState,
   SettingsData,
   UpdateStatusData
 } from '../../../../shared/types/models'
@@ -11,8 +13,13 @@ export interface SettingsRepository {
   setAutoLaunch(enabled: boolean): Promise<boolean>
   setCloseToTray(enabled: boolean): Promise<boolean>
   setAutoCleanup(config: AutoCleanupConfig): Promise<AutoCleanupConfig>
+  setPomodoroActiveSession(
+    session: PomodoroSessionState | null
+  ): Promise<PomodoroSessionState | null>
+  completePomodoroSession(session: PomodoroSessionState): Promise<PomodoroData>
   exportData(): Promise<boolean>
   getAppInfo(): Promise<AppInfo>
+  notifyPomodoroCompleted(): Promise<void>
 }
 
 export interface UpdaterService {

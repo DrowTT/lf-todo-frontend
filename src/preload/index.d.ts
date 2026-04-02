@@ -3,6 +3,8 @@ import type {
   AppInfo,
   AutoCleanupConfig,
   Category,
+  PomodoroData,
+  PomodoroSessionState,
   SettingsData,
   Task,
   UpdateStatusData
@@ -45,9 +47,14 @@ interface API {
     setAutoLaunch: (enabled: boolean) => Promise<boolean>
     setCloseToTray: (enabled: boolean) => Promise<boolean>
     setAutoCleanup: (config: AutoCleanupConfig) => Promise<AutoCleanupConfig>
+    setPomodoroActiveSession: (
+      session: PomodoroSessionState | null
+    ) => Promise<PomodoroSessionState | null>
+    completePomodoroSession: (session: PomodoroSessionState) => Promise<PomodoroData>
     setGlobalHotkeys: (
       config: Record<'showWindow' | 'showWindowAndFocusInput', { key: string; label: string }>
     ) => Promise<void>
+    notifyPomodoroCompleted: () => Promise<void>
     exportData: () => Promise<boolean>
     getAppInfo: () => Promise<AppInfo>
   }

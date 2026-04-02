@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useAppBootstrap } from './app/useAppBootstrap'
 import CategoryList from './components/CategoryList.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
+import PomodoroView from './components/PomodoroView.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import ToastMessage from './components/ToastMessage.vue'
 import TodoList from './components/TodoList.vue'
@@ -23,6 +24,8 @@ const showSettings = computed({
   get: () => appSessionStore.settingsPanelOpen,
   set: (value: boolean) => appSessionStore.setSettingsPanelOpen(value)
 })
+
+const currentMainView = computed(() => appSessionStore.currentMainView)
 </script>
 
 <template>
@@ -33,7 +36,8 @@ const showSettings = computed({
         <CategoryList @open-settings="showSettings = true" />
       </div>
       <div class="resizer" :style="{ left: sidebarWidth + 'px' }" @mousedown="startResize"></div>
-      <TodoList />
+      <TodoList v-if="currentMainView === 'tasks'" />
+      <PomodoroView v-else />
     </div>
     <ConfirmDialog
       :visible="current !== null"

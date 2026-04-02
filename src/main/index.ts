@@ -1,4 +1,15 @@
-import { app, shell, BrowserWindow, ipcMain, Tray, Menu, dialog, screen, globalShortcut } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  ipcMain,
+  Tray,
+  Menu,
+  dialog,
+  screen,
+  globalShortcut,
+  Notification
+} from 'electron'
 import type { Display, Rectangle } from 'electron'
 import { appendFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
@@ -12,6 +23,32 @@ import { parseBooleanSetting, parseSetAutoCleanupRequest } from '../shared/contr
 interface AutoCleanupConfig {
   enabled: boolean
   days: number
+}
+
+interface PomodoroTaskBinding {
+  taskId: number | null
+  taskContentSnapshot: string | null
+}
+
+interface PomodoroSessionState extends PomodoroTaskBinding {
+  startedAt: number
+  endsAt: number
+  durationSeconds: number
+  source: 'global' | 'task'
+}
+
+interface PomodoroRecord extends PomodoroTaskBinding {
+  id: string
+  completedAt: number
+  durationSeconds: number
+  source: 'global' | 'task'
+}
+
+interface PomodoroData {
+  focusDurationSeconds: number
+  totalCompletedCount: number
+  activeSession: PomodoroSessionState | null
+  history: PomodoroRecord[]
 }
 
 interface HotkeyBinding {
@@ -34,6 +71,7 @@ interface StoreType {
   autoLaunch: boolean
   closeToTray: boolean
   autoCleanup: AutoCleanupConfig
+  pomodoro: PomodoroData
   globalHotkeys: GlobalHotkeyConfig
 }
 
@@ -43,6 +81,12 @@ const MIN_WINDOW_SIZE = { width: 400, height: 500 }
 const DEFAULT_GLOBAL_HOTKEYS: GlobalHotkeyConfig = {
   showWindow: { key: 'Control+Alt+L', label: 'Ctrl+Alt+L' },
   showWindowAndFocusInput: { key: 'Control+Alt+N', label: 'Ctrl+Alt+N' }
+}
+const DEFAULT_POMODORO_DATA: PomodoroData = {
+  focusDurationSeconds: 25 * 60,
+  totalCompletedCount: 0,
+  activeSession: null,
+  history: []
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -58,10 +102,12 @@ function isHotkeyBinding(value: unknown): value is HotkeyBinding {
 }
 
 function hasAtLeastTwoKeys(binding: HotkeyBinding): boolean {
-  return binding.key
-    .split('+')
-    .map((part) => part.trim())
-    .filter(Boolean).length >= 2
+  return (
+    binding.key
+      .split('+')
+      .map((part) => part.trim())
+      .filter(Boolean).length >= 2
+  )
 }
 
 function sanitizeGlobalHotkeys(raw: unknown): GlobalHotkeyConfig {
@@ -171,7 +217,10 @@ function clampWindowSizeForDisplay(
 
   return {
     width: Math.max(minWindowSize.width, Math.min(Math.round(size.width), display.workArea.width)),
-    height: Math.max(minWindowSize.height, Math.min(Math.round(size.height), display.workArea.height))
+    height: Math.max(
+      minWindowSize.height,
+      Math.min(Math.round(size.height), display.workArea.height)
+    )
   }
 }
 
@@ -202,11 +251,14 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
-function resolveDisplayForSavedBounds(
-  savedBounds: StoreType['windowBounds']
-): { display: Display; isSameDisplay: boolean } {
+function resolveDisplayForSavedBounds(savedBounds: StoreType['windowBounds']): {
+  display: Display
+  isSameDisplay: boolean
+} {
   if (isFiniteNumber(savedBounds.displayId)) {
-    const matchedDisplay = screen.getAllDisplays().find((display) => display.id === savedBounds.displayId)
+    const matchedDisplay = screen
+      .getAllDisplays()
+      .find((display) => display.id === savedBounds.displayId)
     if (matchedDisplay) {
       return { display: matchedDisplay, isSameDisplay: true }
     }
@@ -214,7 +266,10 @@ function resolveDisplayForSavedBounds(
 
   if (isFiniteNumber(savedBounds.x) && isFiniteNumber(savedBounds.y)) {
     return {
-      display: screen.getDisplayNearestPoint({ x: Math.round(savedBounds.x), y: Math.round(savedBounds.y) }),
+      display: screen.getDisplayNearestPoint({
+        x: Math.round(savedBounds.x),
+        y: Math.round(savedBounds.y)
+      }),
       isSameDisplay: false
     }
   }
@@ -366,7 +421,8 @@ function registerSettingsHandlers(): void {
     return {
       autoLaunch,
       closeToTray: store.get('closeToTray', true),
-      autoCleanup: store.get('autoCleanup', { enabled: false, days: 7 })
+      autoCleanup: store.get('autoCleanup', { enabled: false, days: 7 }),
+      pomodoro: store.get('pomodoro', DEFAULT_POMODORO_DATA)
     }
   })
 
@@ -385,6 +441,39 @@ function registerSettingsHandlers(): void {
     const nextConfig = parseSetAutoCleanupRequest(config, 'settings:set-auto-cleanup.request')
     store.set('autoCleanup', nextConfig)
     return nextConfig
+  })
+
+  ipcMain.handle(
+    'settings:set-pomodoro-active-session',
+    (_event, session: PomodoroSessionState | null) => {
+      const current = store.get('pomodoro', DEFAULT_POMODORO_DATA)
+      const nextPomodoro = { ...current, activeSession: session }
+      store.set('pomodoro', nextPomodoro)
+      return nextPomodoro.activeSession
+    }
+  )
+
+  ipcMain.handle('settings:complete-pomodoro-session', (_event, session: PomodoroSessionState) => {
+    const current = store.get('pomodoro', DEFAULT_POMODORO_DATA)
+    const completedAt = Date.now()
+    const nextRecord: PomodoroRecord = {
+      id: `${completedAt}-${Math.random().toString(36).slice(2, 10)}`,
+      completedAt,
+      durationSeconds: session.durationSeconds,
+      source: session.source,
+      taskId: session.taskId,
+      taskContentSnapshot: session.taskContentSnapshot
+    }
+
+    const nextPomodoro: PomodoroData = {
+      ...current,
+      totalCompletedCount: current.totalCompletedCount + 1,
+      activeSession: null,
+      history: [...current.history, nextRecord]
+    }
+
+    store.set('pomodoro', nextPomodoro)
+    return nextPomodoro
   })
 
   ipcMain.handle('settings:set-global-hotkeys', (_event, config: unknown) => {
@@ -419,6 +508,40 @@ function registerSettingsHandlers(): void {
       node: process.versions.node
     }
   })
+
+  ipcMain.handle('settings:notify-pomodoro-completed', () => {
+    if (!Notification.isSupported()) return
+
+    new Notification({
+      title: '番茄钟完成',
+      body: '25 分钟专注已完成，记得休息一下。',
+      silent: false
+    }).show()
+  })
+}
+
+async function confirmQuitWithRunningPomodoro(win: BrowserWindow): Promise<boolean> {
+  const pomodoro = store.get('pomodoro', DEFAULT_POMODORO_DATA)
+  if (!pomodoro.activeSession) return true
+
+  bringWindowToFront(win)
+
+  const result = await dialog.showMessageBox(win, {
+    type: 'warning',
+    buttons: ['继续退出', '取消'],
+    defaultId: 1,
+    cancelId: 1,
+    title: '番茄钟进行中',
+    message: '退出将终止当前番茄钟，且不会记录本次专注。',
+    detail: '确认继续退出吗？'
+  })
+
+  if (result.response !== 0) {
+    return false
+  }
+
+  store.set('pomodoro', { ...pomodoro, activeSession: null })
+  return true
 }
 
 function attachWindowDiagnostics(win: BrowserWindow): void {
@@ -460,7 +583,10 @@ function createTray(win: BrowserWindow, setQuitting: () => void): void {
       },
       {
         label: '退出',
-        click: () => {
+        click: async () => {
+          const canQuit = await confirmQuitWithRunningPomodoro(win)
+          if (!canQuit) return
+
           setQuitting()
           app.quit()
         }

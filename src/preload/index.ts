@@ -5,6 +5,8 @@ import {
   parseCategories,
   parseCategory,
   parsePendingTaskCounts,
+  parsePomodoroData,
+  parsePomodoroSessionState,
   parseSettingsData,
   parseTask,
   parseTasks,
@@ -18,7 +20,11 @@ import {
   parseSetTaskCompletedRequest,
   parseUpdateTaskRequest
 } from '../shared/contracts/db'
-import { parseBooleanSetting, parseSetAutoCleanupRequest } from '../shared/contracts/settings'
+import {
+  parseBooleanSetting,
+  parseSetAutoCleanupRequest,
+  parseSetPomodoroActiveSessionRequest
+} from '../shared/contracts/settings'
 import { expectBoolean, expectInteger, expectString, parseVoid } from '../shared/contracts/utils'
 
 function invokeWithResponse<T>(
@@ -198,10 +204,35 @@ const api = {
         parseSetAutoCleanupRequest,
         parseAutoCleanupConfig
       ),
+    setPomodoroActiveSession: (session: unknown) =>
+      ipcRenderer
+        .invoke(
+          'settings:set-pomodoro-active-session',
+          parseSetPomodoroActiveSessionRequest(
+            session,
+            'settings:set-pomodoro-active-session.request'
+          )
+        )
+        .then((value) =>
+          value === null
+            ? null
+            : parsePomodoroSessionState(value, 'settings:set-pomodoro-active-session.response')
+        ),
+    completePomodoroSession: (session: unknown) =>
+      invokeWithPayload(
+        'settings:complete-pomodoro-session',
+        session,
+        parseSetPomodoroActiveSessionRequest,
+        parsePomodoroData
+      ),
     setGlobalHotkeys: (config: unknown) =>
       ipcRenderer.invoke('settings:set-global-hotkeys', config).then((value) => {
         return parseVoid(value, 'settings:set-global-hotkeys.response')
       }),
+    notifyPomodoroCompleted: () =>
+      ipcRenderer
+        .invoke('settings:notify-pomodoro-completed')
+        .then((value) => parseVoid(value, 'settings:notify-pomodoro-completed.response')),
     exportData: () =>
       ipcRenderer
         .invoke('settings:export-data')

@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
-import { Plus, Settings } from 'lucide-vue-next'
+import { Clock3, Plus, Settings } from 'lucide-vue-next'
+import { storeToRefs } from 'pinia'
 import { useAppFacade } from '../app/facade/useAppFacade'
 import { useAppRuntime } from '../app/runtime'
 import { useContextMenu } from '../composables/useContextMenu'
+import { useAppSessionStore } from '../store/appSession'
+import { usePomodoroStore } from '../store/pomodoro'
 
 const emit = defineEmits<{
   'open-settings': []
@@ -12,11 +15,14 @@ const emit = defineEmits<{
 const app = useAppFacade()
 const { categories, currentCategoryId, pendingCounts } = app
 const { confirm } = useAppRuntime().confirm
+const appSessionStore = useAppSessionStore()
 const {
   menu: contextMenu,
   open: openContextMenu,
   close: closeContextMenu
 } = useContextMenu<number>()
+const pomodoroStore = usePomodoroStore()
+const { isRunning: isPomodoroRunning, formattedRemaining } = storeToRefs(pomodoroStore)
 
 const newCategoryName = ref('')
 const isAdding = ref(false)
@@ -42,6 +48,15 @@ const startAdding = async () => {
   isAdding.value = true
   await nextTick()
   inputRef.value?.focus()
+}
+
+const openPomodoroView = () => {
+  appSessionStore.currentMainView = 'pomodoro'
+}
+
+const handleSelectCategory = (categoryId: number) => {
+  appSessionStore.currentMainView = 'tasks'
+  void app.selectCategory(categoryId)
 }
 
 const handleDeleteCategory = async () => {
@@ -85,6 +100,28 @@ const cancelRename = () => {
 <template>
   <div class="category-list">
     <div class="category-list__header">
+      <div class="category-list__view-switch">
+        <button
+          class="category-list__view-btn"
+          :class="{
+            'category-list__view-btn--active': appSessionStore.currentMainView === 'pomodoro',
+            'category-list__view-btn--running': isPomodoroRunning
+          }"
+          @click="openPomodoroView"
+        >
+          <Clock3 v-if="!isPomodoroRunning" :size="14" />
+          <!-- 空闲时显示"番茄钟"，运行时显示脉冲点+倒计时 -->
+          <template v-if="!isPomodoroRunning">
+            <span>番茄钟</span>
+          </template>
+          <template v-else>
+            <span class="category-list__pomo-inline">
+              <span class="category-list__pomo-dot" />
+              <span class="category-list__pomo-time">{{ formattedRemaining }}</span>
+            </span>
+          </template>
+        </button>
+      </div>
       <span class="category-list__header-label">分类</span>
     </div>
 
@@ -95,10 +132,11 @@ const cancelRename = () => {
           :key="category.id"
           class="category-item"
           :class="{
-            'category-item--active': currentCategoryId === category.id,
+            'category-item--active':
+              appSessionStore.currentMainView === 'tasks' && currentCategoryId === category.id,
             'category-item--editing': editingCategoryId === category.id
           }"
-          @click="editingCategoryId !== category.id && app.selectCategory(category.id)"
+          @click="editingCategoryId !== category.id && handleSelectCategory(category.id)"
           @contextmenu="openContextMenu($event, category.id)"
         >
           <input
@@ -169,22 +207,109 @@ const cancelRename = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: $bg-sidebar;
-  border-right: 1px solid $border-subtle;
+  background: linear-gradient(180deg, #edf3f5 0%, #e8eef3 100%);
+  border-right: 1px solid rgba(19, 78, 74, 0.07);
 
   &__header {
-    padding: $spacing-lg $spacing-lg $spacing-sm;
+    padding: 22px 18px 10px;
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  &__view-switch {
+    display: flex;
+  }
+
+  &__view-btn {
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 8px;
+    min-height: 42px;
+    width: 100%;
+    padding: 0 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.52);
+    background: rgba(255, 255, 255, 0.38);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: $text-secondary;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    transition:
+      background-color $transition-normal,
+      border-color $transition-normal,
+      color $transition-normal,
+      box-shadow $transition-normal;
+
+    &:hover {
+      color: $accent-color;
+      border-color: rgba(37, 99, 235, 0.16);
+      background: rgba(255, 255, 255, 0.62);
+      box-shadow: 0 8px 14px rgba(15, 23, 42, 0.03);
+    }
+
+    /* 图标不要被压缩，并修正基线对齐 */
+    > svg {
+      flex-shrink: 0;
+      margin-top: -1px;
+    }
+  }
+
+  &__view-btn--active {
+    color: $accent-color;
+    border-color: rgba(37, 99, 235, 0.14);
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.04);
+  }
+
+  /* 运行态包裹容器：让脉冲点+时间作为整体居中 */
+  &__pomo-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* 运行态脉冲点：紧贴倒计时文字左侧 */
+  &__pomo-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #16a34a;
+    flex-shrink: 0;
+    animation: sidebar-pomo-pulse 1.8s ease-in-out infinite;
+  }
+
+  /* 倒计时文本：固定宽度防止数字变化导致抖动 */
+  &__pomo-time {
+    display: inline-block;
+    min-width: 42px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: $accent-color;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* 运行态按钮微调：内容居中 */
+  &__view-btn--running {
+    justify-content: center;
+    border-color: rgba(37, 99, 235, 0.18);
+    background: rgba(255, 255, 255, 0.82);
   }
 
   &__header-label {
-    font-size: $font-xs;
+    font-size: 11px;
     font-weight: 600;
     color: $text-muted;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.2em;
   }
 
   &__content {
@@ -194,8 +319,8 @@ const cancelRename = () => {
   }
 
   &__footer {
-    padding: $spacing-sm $spacing-md;
-    border-top: 1px solid $border-subtle;
+    padding: 10px 14px 14px;
+    border-top: 1px solid rgba(15, 23, 42, 0.06);
   }
 
   &__footer-divider {
@@ -212,7 +337,7 @@ const cancelRename = () => {
     padding: $spacing-sm $spacing-md;
     background: transparent;
     border: none;
-    border-radius: $radius-md;
+    border-radius: 12px;
     font-size: $font-sm;
     color: $text-muted;
     cursor: pointer;
@@ -231,7 +356,7 @@ const cancelRename = () => {
     padding: $spacing-sm $spacing-md;
     background: transparent;
     border: 1px dashed $border-light;
-    border-radius: $radius-md;
+    border-radius: 12px;
     font-size: $font-sm;
     color: $text-muted;
     cursor: pointer;
@@ -279,40 +404,45 @@ const cancelRename = () => {
 .category-item {
   display: flex;
   align-items: center;
-  padding: $spacing-sm $spacing-lg;
-  margin: 0 $spacing-sm;
+  padding: 10px 16px;
+  margin: 2px 10px;
   font-size: $font-sm;
   color: $text-secondary;
   cursor: pointer;
-  border-radius: $radius-md;
+  border-radius: 14px;
   transition:
     background-color 0.15s ease,
-    color 0.15s ease;
+    color 0.15s ease,
+    box-shadow 0.15s ease;
   position: relative;
 
   &:hover {
-    background: $accent-soft;
+    background: rgba(255, 255, 255, 0.72);
     color: $text-primary;
+    box-shadow: 0 8px 14px rgba(15, 23, 42, 0.03);
   }
 
   &--active {
-    background: $accent-soft;
+    background: rgba(255, 255, 255, 0.92);
     color: $text-primary;
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.04);
 
     &::before {
       content: '';
       position: absolute;
-      left: 0;
-      top: 20%;
-      bottom: 20%;
-      width: 3px;
+      left: 10px;
+      top: 50%;
+      width: 6px;
+      height: 6px;
       background: $accent-color;
-      border-radius: 0 2px 2px 0;
+      border-radius: 50%;
+      transform: translateY(-50%);
     }
   }
 
   &__name {
     flex: 1;
+    padding-left: 10px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -399,6 +529,18 @@ const cancelRename = () => {
     height: 1px;
     background: $border-subtle;
     margin: $spacing-xs 0;
+  }
+}
+
+/* 番茄钟运行状态脉冲动画 */
+@keyframes sidebar-pomo-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.3);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0);
   }
 }
 </style>
