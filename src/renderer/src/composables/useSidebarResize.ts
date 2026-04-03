@@ -6,6 +6,9 @@ const DEFAULT_WIDTH = 180
 // 统一使用 lf-todo: 前缀（与 categoryStore、subtask.ts 保持一致的命名规范）
 const STORAGE_KEY = 'lf-todo:sidebar-width'
 
+/** Activity Bar 固定宽度，需要在拖拽计算中减去 */
+export const ACTIVITY_BAR_WIDTH = 48
+
 /**
  * 侧边栏拖拽 resize composable
  * - 支持鼠标拖拽调整宽度
@@ -17,7 +20,8 @@ export function useSidebarResize() {
   const sidebarWidth = ref(DEFAULT_WIDTH)
   const isResizing = ref(false)
 
-  const getMaxSidebarWidth = () => window.innerWidth - MIN_TODO_WIDTH
+  // 最大宽度需减去 ActivityBar 占位
+  const getMaxSidebarWidth = () => window.innerWidth - MIN_TODO_WIDTH - ACTIVITY_BAR_WIDTH
 
   const applyConstraints = (width: number): number => {
     const max = getMaxSidebarWidth()
@@ -30,9 +34,10 @@ export function useSidebarResize() {
     sidebarWidth.value = applyConstraints(sidebarWidth.value)
   }
 
+  // clientX 需减去 ActivityBar 宽度偏移
   const handleResize = (e: MouseEvent) => {
     if (!isResizing.value) return
-    sidebarWidth.value = applyConstraints(e.clientX)
+    sidebarWidth.value = applyConstraints(e.clientX - ACTIVITY_BAR_WIDTH)
   }
 
   const stopResize = () => {

@@ -1,16 +1,10 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
-import { Clock3, Plus, Settings } from 'lucide-vue-next'
-import { storeToRefs } from 'pinia'
+import { Plus } from 'lucide-vue-next'
 import { useAppFacade } from '../app/facade/useAppFacade'
 import { useAppRuntime } from '../app/runtime'
 import { useContextMenu } from '../composables/useContextMenu'
 import { useAppSessionStore } from '../store/appSession'
-import { usePomodoroStore } from '../store/pomodoro'
-
-const emit = defineEmits<{
-  'open-settings': []
-}>()
 
 const app = useAppFacade()
 const { categories, currentCategoryId, pendingCounts } = app
@@ -21,8 +15,6 @@ const {
   open: openContextMenu,
   close: closeContextMenu
 } = useContextMenu<number>()
-const pomodoroStore = usePomodoroStore()
-const { isRunning: isPomodoroRunning, formattedRemaining } = storeToRefs(pomodoroStore)
 
 const newCategoryName = ref('')
 const isAdding = ref(false)
@@ -50,9 +42,7 @@ const startAdding = async () => {
   inputRef.value?.focus()
 }
 
-const openPomodoroView = () => {
-  appSessionStore.currentMainView = 'pomodoro'
-}
+
 
 const handleSelectCategory = (categoryId: number) => {
   appSessionStore.currentMainView = 'tasks'
@@ -100,28 +90,6 @@ const cancelRename = () => {
 <template>
   <div class="category-list">
     <div class="category-list__header">
-      <div class="category-list__view-switch">
-        <button
-          class="category-list__view-btn"
-          :class="{
-            'category-list__view-btn--active': appSessionStore.currentMainView === 'pomodoro',
-            'category-list__view-btn--running': isPomodoroRunning
-          }"
-          @click="openPomodoroView"
-        >
-          <Clock3 v-if="!isPomodoroRunning" :size="14" />
-          <!-- 空闲时显示"番茄钟"，运行时显示脉冲点+倒计时 -->
-          <template v-if="!isPomodoroRunning">
-            <span>番茄钟</span>
-          </template>
-          <template v-else>
-            <span class="category-list__pomo-inline">
-              <span class="category-list__pomo-dot" />
-              <span class="category-list__pomo-time">{{ formattedRemaining }}</span>
-            </span>
-          </template>
-        </button>
-      </div>
       <span class="category-list__header-label">分类</span>
     </div>
 
@@ -178,11 +146,6 @@ const cancelRename = () => {
         <Plus class="category-list__add-icon" :size="12" />
         新建分类
       </button>
-      <div class="category-list__footer-divider"></div>
-      <button class="category-list__settings-btn" @click="emit('open-settings')">
-        <Settings :size="14" />
-        <span>设置</span>
-      </button>
     </div>
 
     <div
@@ -211,97 +174,10 @@ const cancelRename = () => {
   border-right: 1px solid rgba(19, 78, 74, 0.07);
 
   &__header {
-    padding: 22px 18px 10px;
+    padding: 18px 18px 10px;
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 14px;
-  }
-
-  &__view-switch {
-    display: flex;
-  }
-
-  &__view-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-    min-height: 42px;
-    width: 100%;
-    padding: 0 12px;
-    border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.52);
-    background: rgba(255, 255, 255, 0.38);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    color: $text-secondary;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    transition:
-      background-color $transition-normal,
-      border-color $transition-normal,
-      color $transition-normal,
-      box-shadow $transition-normal;
-
-    &:hover {
-      color: $accent-color;
-      border-color: rgba(37, 99, 235, 0.16);
-      background: rgba(255, 255, 255, 0.62);
-      box-shadow: 0 8px 14px rgba(15, 23, 42, 0.03);
-    }
-
-    /* 图标不要被压缩，并修正基线对齐 */
-    > svg {
-      flex-shrink: 0;
-      margin-top: -1px;
-    }
-  }
-
-  &__view-btn--active {
-    color: $accent-color;
-    border-color: rgba(37, 99, 235, 0.14);
-    background: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.04);
-  }
-
-  /* 运行态包裹容器：让脉冲点+时间作为整体居中 */
-  &__pomo-inline {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  /* 运行态脉冲点：紧贴倒计时文字左侧 */
-  &__pomo-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #16a34a;
-    flex-shrink: 0;
-    animation: sidebar-pomo-pulse 1.8s ease-in-out infinite;
-  }
-
-  /* 倒计时文本：固定宽度防止数字变化导致抖动 */
-  &__pomo-time {
-    display: inline-block;
-    min-width: 42px;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 700;
-    color: $accent-color;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
-  }
-
-  /* 运行态按钮微调：内容居中 */
-  &__view-btn--running {
-    justify-content: center;
-    border-color: rgba(37, 99, 235, 0.18);
-    background: rgba(255, 255, 255, 0.82);
   }
 
   &__header-label {
@@ -320,32 +196,6 @@ const cancelRename = () => {
 
   &__footer {
     padding: 10px 14px 10px;
-  }
-
-  &__footer-divider {
-    height: 1px;
-    background: rgba(15, 23, 42, 0.06);
-    margin: 10px -14px;
-  }
-
-  &__settings-btn {
-    display: flex;
-    align-items: center;
-    gap: $spacing-sm;
-    width: 100%;
-    padding: $spacing-sm $spacing-md;
-    background: transparent;
-    border: none;
-    border-radius: 12px;
-    font-size: $font-sm;
-    color: $text-muted;
-    cursor: pointer;
-    transition: all $transition-normal;
-
-    &:hover {
-      color: $accent-color;
-      background: $accent-soft;
-    }
   }
 
   &__add-btn {
@@ -531,15 +381,4 @@ const cancelRename = () => {
   }
 }
 
-/* 番茄钟运行状态脉冲动画 */
-@keyframes sidebar-pomo-pulse {
-  0%, 100% {
-    opacity: 0.4;
-    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.3);
-  }
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0);
-  }
-}
 </style>

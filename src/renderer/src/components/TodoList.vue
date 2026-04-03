@@ -4,7 +4,9 @@ import draggable from 'vuedraggable'
 import { ClipboardList, Sparkles } from 'lucide-vue-next'
 import { useAppFacade } from '../app/facade/useAppFacade'
 import { useAppRuntime } from '../app/runtime'
+import { useSidebarResize } from '../composables/useSidebarResize'
 import { useTaskStore } from '../store/task'
+import CategoryList from './CategoryList.vue'
 import TodoInput from './TodoInput.vue'
 import TodoItem from './TodoItem.vue'
 
@@ -12,6 +14,7 @@ const app = useAppFacade()
 const { currentCategoryId, categories, tasks, isLoading } = app
 const { confirm } = useAppRuntime().confirm
 const taskStore = useTaskStore()
+const { sidebarWidth, startResize } = useSidebarResize()
 
 const dragStartOrder = ref<number[]>([])
 
@@ -51,81 +54,131 @@ const onDragEnd = async () => {
 </script>
 
 <template>
-  <div class="todo-panel">
-    <header class="todo-panel__header">
-      <h1 class="todo-panel__title">
-        {{ currentCategoryName }}
-      </h1>
-      <div class="todo-panel__actions">
-        <span v-if="currentCategoryId" class="todo-panel__badge">
-          <span class="todo-panel__badge-num">
-            {{ currentPendingCount }}
+  <div class="todo-layout">
+    <div :style="{ width: sidebarWidth + 'px' }" class="todo-layout__sidebar">
+      <CategoryList />
+    </div>
+    <div
+      class="todo-layout__resizer"
+      :style="{ left: sidebarWidth + 'px' }"
+      @mousedown="startResize"
+    ></div>
+
+    <div class="todo-panel">
+      <header class="todo-panel__header">
+        <h1 class="todo-panel__title">
+          {{ currentCategoryName }}
+        </h1>
+        <div class="todo-panel__actions">
+          <span v-if="currentCategoryId" class="todo-panel__badge">
+            <span class="todo-panel__badge-num">
+              {{ currentPendingCount }}
+            </span>
+            <span class="todo-panel__badge-label">待办</span>
           </span>
-          <span class="todo-panel__badge-label">待办</span>
-        </span>
-        <span v-if="taskStore.isReorderingTasks" class="todo-panel__status">排序保存中</span>
-        <button
-          v-if="currentCategoryId"
-          :disabled="completedCount === 0 || taskStore.isClearingCompleted"
-          class="todo-panel__clear-btn"
-          title="清空已完成"
-          @click="handleClearCompleted"
-        >
-          {{ taskStore.isClearingCompleted ? '删除中...' : `清空已完成 (${completedCount})` }}
-        </button>
-      </div>
-    </header>
-
-    <TodoInput v-if="currentCategoryId" />
-
-    <div class="todo-panel__body">
-      <div v-if="isLoading" class="todo-panel__loading">
-        <div class="todo-panel__spinner">
-          <div class="todo-panel__dot"></div>
-          <div class="todo-panel__dot"></div>
-          <div class="todo-panel__dot"></div>
+          <span v-if="taskStore.isReorderingTasks" class="todo-panel__status">排序保存中</span>
+          <button
+            v-if="currentCategoryId"
+            :disabled="completedCount === 0 || taskStore.isClearingCompleted"
+            class="todo-panel__clear-btn"
+            title="清空已完成"
+            @click="handleClearCompleted"
+          >
+            {{ taskStore.isClearingCompleted ? '删除中...' : `清空已完成 (${completedCount})` }}
+          </button>
         </div>
-      </div>
-      <template v-else>
-        <div v-if="!currentCategoryId" class="todo-panel__empty">
-          <div class="todo-panel__empty-glow">
-            <ClipboardList class="todo-panel__empty-svg" :size="32" />
+      </header>
+
+      <TodoInput v-if="currentCategoryId" />
+
+      <div class="todo-panel__body">
+        <div v-if="isLoading" class="todo-panel__loading">
+          <div class="todo-panel__spinner">
+            <div class="todo-panel__dot"></div>
+            <div class="todo-panel__dot"></div>
+            <div class="todo-panel__dot"></div>
           </div>
-          <div class="todo-panel__empty-title">请选择或创建一个分类</div>
-          <div class="todo-panel__empty-hint">在左侧添加分类后即可开始管理待办</div>
         </div>
-        <div v-else-if="tasks.length === 0" class="todo-panel__empty">
-          <div class="todo-panel__empty-glow todo-panel__empty-glow--spark">
-            <Sparkles class="todo-panel__empty-svg" :size="32" />
+        <template v-else>
+          <div v-if="!currentCategoryId" class="todo-panel__empty">
+            <div class="todo-panel__empty-glow">
+              <ClipboardList class="todo-panel__empty-svg" :size="32" />
+            </div>
+            <div class="todo-panel__empty-title">请选择或创建一个分类</div>
+            <div class="todo-panel__empty-hint">在左侧添加分类后即可开始管理待办</div>
           </div>
-          <div class="todo-panel__empty-title">暂无任务</div>
-          <div class="todo-panel__empty-hint">在上方输入框添加你的第一个待办吧</div>
-        </div>
+          <div v-else-if="tasks.length === 0" class="todo-panel__empty">
+            <div class="todo-panel__empty-glow todo-panel__empty-glow--spark">
+              <Sparkles class="todo-panel__empty-svg" :size="32" />
+            </div>
+            <div class="todo-panel__empty-title">暂无任务</div>
+            <div class="todo-panel__empty-hint">在上方输入框添加你的第一个待办吧</div>
+          </div>
 
-        <draggable
-          v-else
-          v-model="draggableTasks"
-          item-key="id"
-          handle=".card__drag-handle"
-          ghost-class="card--ghost"
-          drag-class="card--dragging"
-          :animation="200"
-          :disabled="taskStore.isReorderingTasks"
-          class="todo-panel__cards"
-          @start="onDragStart"
-          @end="onDragEnd"
-        >
-          <template #item="{ element }">
-            <TodoItem :task="element" />
-          </template>
-        </draggable>
-      </template>
+          <draggable
+            v-else
+            v-model="draggableTasks"
+            item-key="id"
+            handle=".card__drag-handle"
+            ghost-class="card--ghost"
+            drag-class="card--dragging"
+            :animation="200"
+            :disabled="taskStore.isReorderingTasks"
+            class="todo-panel__cards"
+            @start="onDragStart"
+            @end="onDragEnd"
+          >
+            <template #item="{ element }">
+              <TodoItem :task="element" />
+            </template>
+          </draggable>
+        </template>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
 @use '../styles/variables' as *;
+
+.todo-layout {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.todo-layout__sidebar {
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.todo-layout__resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 99;
+  transform: translateX(-50%);
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: transparent;
+    transition: background $transition-normal;
+  }
+
+  &:hover::after {
+    background: $accent-color;
+  }
+}
 
 .todo-panel {
   display: flex;
@@ -273,6 +326,7 @@ const onDragEnd = async () => {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -336,6 +390,7 @@ const onDragEnd = async () => {
     transform: translateY(0);
     opacity: 0.4;
   }
+
   40% {
     transform: translateY(-8px);
     opacity: 1;

@@ -4,7 +4,7 @@ import { readStoredJson, writeStoredJson } from '../utils/localStorage'
 
 interface SessionSnapshot {
   settingsPanelOpen: boolean
-  currentMainView: 'tasks' | 'pomodoro'
+  currentMainView: 'tasks' | 'pomodoro' | 'settings'
   taskDrafts: Record<string, string>
   subTaskDrafts: Record<string, string>
 }
@@ -16,7 +16,12 @@ function loadSnapshot(): SessionSnapshot {
 
   return {
     settingsPanelOpen: parsed.settingsPanelOpen ?? false,
-    currentMainView: parsed.currentMainView === 'pomodoro' ? 'pomodoro' : 'tasks',
+    currentMainView:
+      parsed.currentMainView === 'pomodoro'
+        ? 'pomodoro'
+        : parsed.currentMainView === 'settings'
+          ? 'settings'
+          : 'tasks',
     taskDrafts: parsed.taskDrafts ?? {},
     subTaskDrafts: parsed.subTaskDrafts ?? {}
   }
@@ -25,7 +30,7 @@ function loadSnapshot(): SessionSnapshot {
 export const useAppSessionStore = defineStore('appSession', () => {
   const hydrated = ref(false)
   const settingsPanelOpen = ref(false)
-  const currentMainView = ref<'tasks' | 'pomodoro'>('tasks')
+  const currentMainView = ref<'tasks' | 'pomodoro' | 'settings'>('tasks')
   const taskDrafts = ref<Record<string, string>>({})
   const subTaskDrafts = ref<Record<string, string>>({})
 

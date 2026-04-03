@@ -10,8 +10,7 @@ import {
   Power,
   RefreshCw,
   Settings,
-  Trash2,
-  X
+  Trash2
 } from 'lucide-vue-next'
 import { useAppRuntime } from '../app/runtime'
 import {
@@ -22,16 +21,10 @@ import {
 } from '../composables/useHotkeys'
 import { useSettingsStore } from '../store/settings'
 import { useUpdaterStore } from '../store/updater'
-
-const props = defineProps<{
-  visible: boolean
-}>()
-
-const emit = defineEmits<{
-  close: []
-}>()
+import { useAppSessionStore } from '../store/appSession'
 
 const runtime = useAppRuntime()
+const appSessionStore = useAppSessionStore()
 const { confirm } = runtime.confirm
 const {
   hotkeyConfig,
@@ -323,29 +316,13 @@ function handleKeydown(event: KeyboardEvent) {
     return
   }
 
-  if (event.key === 'Escape' && props.visible) {
-    emit('close')
+  // ESC 切回待办视图
+  if (event.key === 'Escape') {
+    appSessionStore.currentMainView = 'tasks'
   }
 }
 
-watch(
-  () => props.visible,
-  async (visible) => {
-    if (visible) {
-      void settingsStore.load()
-      updaterStore.initialize()
-      await nextTick()
-      syncOpenDropdownPositions()
-      return
-    }
 
-    cleanupDropdownOpen.value = false
-
-    if (recordingAction.value) {
-      cancelRecording()
-    }
-  }
-)
 
 watch(autoCleanupDays, () => {
   if (autoCleanupEnabled.value) {
@@ -356,6 +333,7 @@ watch(autoCleanupDays, () => {
 
 onMounted(() => {
   void settingsStore.hydrate()
+  void settingsStore.load()
   updaterStore.initialize()
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('click', handleDropdownOutsideClick, true)
@@ -372,33 +350,18 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Transition name="settings-overlay">
-    <div
-      v-if="visible"
-      class="settings-overlay"
-      tabindex="-1"
-      @click.self="emit('close')"
-      @keydown="handleKeydown"
-    />
-  </Transition>
-
-  <Transition name="settings-panel">
-    <aside v-if="visible" class="settings-panel" tabindex="-1" @keydown="handleKeydown">
-      <button class="settings-panel__close" type="button" title="关闭" @click="emit('close')">
-        <X :size="14" />
-      </button>
-
-      <div class="settings-panel__header">
-        <div class="settings-panel__header-left">
-          <Settings :size="18" class="settings-panel__header-icon" />
-          <h2 class="settings-panel__title">设置</h2>
+  <div class="settings-view" tabindex="-1" @keydown="handleKeydown">
+    <div class="settings-view__header">
+        <div class="settings-view__header-left">
+          <Settings :size="18" class="settings-view__header-icon" />
+          <h2 class="settings-view__title">设置</h2>
         </div>
-        <span v-if="settingsStatusText" class="settings-panel__meta">
+        <span v-if="settingsStatusText" class="settings-view__meta">
           {{ settingsStatusText }}
         </span>
       </div>
 
-      <div class="settings-panel__body">
+      <div class="settings-view__body">
         <section class="settings-group">
           <div class="settings-group__header">
             <Power :size="14" class="settings-group__icon" />
@@ -710,34 +673,18 @@ onUnmounted(() => {
           </div>
         </section>
       </div>
-    </aside>
-  </Transition>
+  </div>
 </template>
 
 <style scoped lang="scss">
 @use '../styles/variables' as *;
 
-.settings-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  background: rgba(15, 23, 42, 0.28);
-  backdrop-filter: blur(4px);
-}
-
-.settings-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  z-index: 201;
-  width: 400px;
-  max-width: 92vw;
-  height: 100%;
-  background: $bg-primary;
-  border-left: 1px solid $border-color;
-  box-shadow: -10px 0 32px rgba(15, 23, 42, 0.12);
+/* 内联主视图设置页 */
+.settings-view {
+  flex: 1;
   display: flex;
   flex-direction: column;
+  background: $bg-primary;
   outline: none;
   overflow: hidden;
 
@@ -746,9 +693,9 @@ onUnmounted(() => {
     align-items: center;
     justify-content: space-between;
     gap: $spacing-md;
-    padding: $spacing-md 60px $spacing-md $spacing-lg;
+    padding: $spacing-md $spacing-xl;
     border-bottom: 1px solid $border-subtle;
-    background: $bg-sidebar;
+    background: $bg-primary;
     flex-shrink: 0;
   }
 
@@ -764,7 +711,7 @@ onUnmounted(() => {
 
   &__title {
     margin: 0;
-    font-size: $font-md;
+    font-size: $font-lg;
     font-weight: 700;
     color: $text-primary;
   }
@@ -772,43 +719,24 @@ onUnmounted(() => {
   &__meta {
     font-size: $font-xs;
     color: $text-muted;
-    max-width: 120px;
+    max-width: 160px;
     text-align: right;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  &__close {
-    position: absolute;
-    top: 0;
-    right: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 46px;
-    height: 40px;
-    border: none;
-    background: transparent;
-    color: $text-muted;
-    cursor: pointer;
-    transition: all $transition-fast;
-
-    &:hover {
-      color: white;
-      background: $danger-color;
-    }
-  }
-
   &__body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: $spacing-lg;
+    padding: $spacing-xl;
     display: flex;
     flex-direction: column;
     gap: $spacing-md;
     overscroll-behavior: contain;
+    /* 限制内容最大宽度，大屏时不会拉伸过宽 */
+    max-width: 600px;
 
     &::-webkit-scrollbar {
       width: 8px;
@@ -1392,23 +1320,4 @@ onUnmounted(() => {
   }
 }
 
-.settings-overlay-enter-active,
-.settings-overlay-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.settings-overlay-enter-from,
-.settings-overlay-leave-to {
-  opacity: 0;
-}
-
-.settings-panel-enter-active,
-.settings-panel-leave-active {
-  transition: transform 0.24s ease;
-}
-
-.settings-panel-enter-from,
-.settings-panel-leave-to {
-  transform: translateX(100%);
-}
 </style>
